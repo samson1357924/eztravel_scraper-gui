@@ -61,10 +61,12 @@ def run_script(script_name, job_name):
 
 # --- 3. 定義任務 ---
 def job1():
-    run_script("ticket_0310-29.py", "去程")
+    # 指向整理後的 scraper.py
+    run_script("scraper.py", "去程")
 
 def job2():
-    run_script("ticket_0311-30_back.py", "回程")
+    # 指向整理後的 scraper.py
+    run_script("scraper.py", "回程")
 
 # --- 4. 設定排程 ---
 print("🚀 排程系統已啟動 ...")
