@@ -15,7 +15,7 @@ from datetime import datetime
 logging.basicConfig(
     filename='schedule_log.log',
     level=logging.INFO,
-    format='%(message)s', # 這裡改簡單一點，因為我們會自己在訊息裡加時間
+    format='%(message)s', 
     encoding='utf-8'
 )
 
@@ -45,12 +45,8 @@ def run_script(script_name, job_name):
 
         # 檢查是否成功 (returncode 為 0 表示成功)
         if result.returncode == 0:
-            # --- 這裡就是你要的 Log 格式 ---
             log_msg = f"{job_name} 完成時間：{finish_time}"
             logging.info(log_msg) 
-            
-            # (選用) 如果你想在 Log 裡看到腳本輸出的內容，可以打開下面這行
-            # logging.info(f"腳本輸出: {result.stdout.strip()}")
         else:
             # 失敗時的 Log
             logging.error(f"❌ {job_name} 執行失敗 (時間：{finish_time})")
@@ -60,24 +56,15 @@ def run_script(script_name, job_name):
         logging.error(f"❌ {job_name} 發生系統錯誤: {e}")
 
 # --- 3. 定義任務 ---
-def job1():
-    # 指向整理後的 scraper.py
-    run_script("scraper.py", "去程")
-
-def job2():
-    # 指向整理後的 scraper.py
-    run_script("scraper.py", "回程")
+def job():
+    # 執行統一的 scraper.py
+    run_script("scraper.py", "機票爬蟲任務")
 
 # --- 4. 設定排程 ---
-print("🚀 排程系統已啟動 ...")
+print("🚀 排程系統已啟動 (每 15 分鐘執行一次) ...")
 
-# 設定：整點與半點 -> 去程
-schedule.every().hour.at(":00").do(job1)
-schedule.every().hour.at(":30").do(job1)
-
-# 設定：15分與45分 -> 回程
-schedule.every().hour.at(":15").do(job2)
-schedule.every().hour.at(":45").do(job2)
+# 設定：每 15 分鐘執行一次
+schedule.every(15).minutes.do(job)
 
 # --- 5. 主迴圈 ---
 while True:
