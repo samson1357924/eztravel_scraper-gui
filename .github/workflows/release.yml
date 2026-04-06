@@ -18,6 +18,8 @@ jobs:
           - os: windows-latest
             target: windows-x64
             artifact_name: ezTravel-Scraper-windows-x64.exe
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       
