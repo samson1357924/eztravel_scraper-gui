@@ -86,6 +86,74 @@ def send_notifications(found_flights):
     else:
         print("Email 通知已停用，跳過發送。")
 
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import PatternFill, Font
+import os
+
+def record_to_excel(results, start_date_str, end_date_str):
+    """將爬蟲結果記錄到 Excel，格式參考用戶提供圖片"""
+    if not getattr(config, 'EXCEL_ENABLE', False):
+        return
+    
+    filename = getattr(config, 'EXCEL_FILENAME', 'flight_prices.xlsx')
+    top_n = int(getattr(config, 'EXCEL_TOP_N', 3))
+    
+    # 解析日期範圍
+    start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+    end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+    date_range = [start_date + timedelta(days=x) for x in range((end_date - start_date).days + 1)]
+    
+    # 準備表頭
+    headers = ["Time"]
+    for d in date_range:
+        d_str = d.strftime('%m/%d')
+        for i in range(1, top_n + 1):
+            headers.append(f"{d_str} - {i}")
+            
+    # 載入或建立活頁簿
+    if os.path.exists(filename):
+        try:
+            wb = load_workbook(filename)
+            ws = wb.active
+        except:
+            wb = Workbook()
+            ws = wb.active
+            ws.append(headers)
+    else:
+        wb = Workbook()
+        ws = wb.active
+        ws.append(headers)
+
+    # 檢查現有表頭是否匹配，若不匹配則在下方重新插入一組新表頭（不破壞公式）
+    current_headers = [cell.value for cell in ws[1]] if ws.max_row >= 1 else []
+    if current_headers != headers:
+        ws.append([]) # 空行分隔
+        ws.append(headers)
+        
+    # 準備當次數據行
+    row_data = [datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+    
+    # 建立結果查找字典 (日期 -> 排序後的價格列表)
+    results_map = {}
+    for r in results:
+        d = r['date']
+        if d not in results_map:
+            results_map[d] = []
+        results_map[d].append(r['price'])
+    
+    for d in date_range:
+        d_key = d.strftime('%Y-%m-%d')
+        prices = sorted(results_map.get(d_key, []))
+        for i in range(top_n):
+            if i < len(prices):
+                row_data.append(prices[i])
+            else:
+                row_data.append("") # 無資料填空
+                
+    ws.append(row_data)
+    wb.save(filename)
+    print(f"數據已記錄至 Excel: {filename}")
+
 def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務", log_callback=None):
     def log(message):
         if log_callback:
@@ -150,10 +218,12 @@ def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務", lo
                 if prices:
                     min_price = min(prices)
                     log(f"已抓取 {date.strftime('%Y-%m-%d')} 票價，當日最低價: {min_price}")
-                    if min_price <= config.TARGET_PRICE:
+                    
+                    # 收集當日所有票價以便 Excel 記錄 (不論是否低於 TARGET_PRICE)
+                    for p in prices:
                         found_cheap_flights.append({
                             "date": date.strftime('%Y-%m-%d'),
-                            "price": min_price,
+                            "price": p,
                             "link": f"{link_base}?outbounddate={date.strftime('%d%%2F%m%%2F%Y')}"
                         })
                 else:
@@ -164,10 +234,28 @@ def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務", lo
             log(f"例外狀況 ({outbound_date}): {e}")
 
     if found_cheap_flights:
-        log(f"[{current_time}] 任務完成！發現 {len(found_cheap_flights)} 筆低於目標價的機票。")
-        send_notifications(found_cheap_flights)
+        # 1. Excel 記錄邏輯 (記錄完整原始數據)
+        record_to_excel(found_cheap_flights, start_date_str, end_date_str)
+        
+        # 2. 通知邏輯 (僅針對低於 TARGET_PRICE 的最低價進行通知)
+        notify_list = []
+        date_min_prices = {}
+        for f in found_cheap_flights:
+            d = f['date']
+            if d not in date_min_prices or f['price'] < date_min_prices[d]['price']:
+                date_min_prices[d] = f
+        
+        for f in date_min_prices.values():
+            if f['price'] <= config.TARGET_PRICE:
+                notify_list.append(f)
+        
+        if notify_list:
+            log(f"[{current_time}] 發現 {len(notify_list)} 筆低於目標價的機票，發送通知中...")
+            send_notifications(notify_list)
+        else:
+            log(f"[{current_time}] 未發現低於目標價的機票 (已記錄至 Excel)。")
     else:
-        log(f"[{current_time}] 任務完成，未發現低於目標價的機票。")
+        log(f"[{current_time}] 任務完成，無任何回傳票價資料。")
     
     return found_cheap_flights
 
