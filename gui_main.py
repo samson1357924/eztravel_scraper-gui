@@ -19,7 +19,7 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("易遊網機票爬蟲-gui (Excel 支援版)")
-        self.geometry("1000x880") # 增加預設高度至 880
+        self.geometry("1000x800") # 增加預設高度至 880
         
         # 設定全域字體物件
         self.main_font = ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14)
@@ -101,7 +101,7 @@ class App(ctk.CTk):
         # === 右側主視窗 ===
         self.creds_label = ctk.CTkLabel(self, text="瀏覽器憑證:", font=self.main_font)
         self.creds_label.grid(row=0, column=1, padx=20, pady=(10, 0), sticky="w")
-        self.creds_textbox = ctk.CTkTextbox(self, height=200, font=ctk.CTkFont(family="Consolas", size=12))
+        self.creds_textbox = ctk.CTkTextbox(self, height=300, font=ctk.CTkFont(family="Consolas", size=12))
         self.creds_textbox.grid(row=1, column=1, padx=20, pady=10, sticky="nsew")
         if os.path.exists("credentials.py"):
             with open("credentials.py", "r", encoding="utf-8") as f:
@@ -109,7 +109,7 @@ class App(ctk.CTk):
 
         self.log_label = ctk.CTkLabel(self, text="執行狀態:", font=self.main_font)
         self.log_label.grid(row=2, column=1, padx=20, pady=(10, 0), sticky="w")
-        self.log_textbox = ctk.CTkTextbox(self, height=200, state="disabled", font=self.label_font)
+        self.log_textbox = ctk.CTkTextbox(self, height=250, state="disabled", font=self.label_font)
         self.log_textbox.grid(row=3, column=1, padx=20, pady=10, sticky="nsew")
 
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
