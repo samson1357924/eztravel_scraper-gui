@@ -19,7 +19,7 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("易遊網機票爬蟲-gui (Excel 支援版)")
-        self.geometry("1000x800") # 增加預設高度至 880
+        self.geometry("1000x800") # 增加預設高度至 800
         
         # 設定全域字體物件
         self.main_font = ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14)
