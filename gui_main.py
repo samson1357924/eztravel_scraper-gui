@@ -18,7 +18,7 @@ class App(ctk.CTk):
         self.geometry("900x650")
         
         # 狀態控制
-        self.is_running = False
+        self.scrape_thread = None
         self.stop_requested = False
 
         # 網格配置 (2x2)
@@ -193,20 +193,21 @@ class App(ctk.CTk):
         self.add_log("設定已同步至本地檔案。")
 
     def start_scrape_thread(self):
-        self.is_running = True
         self.stop_requested = False
         self.run_btn.configure(state="disabled", text="正在抓取...")
         self.stop_btn.configure(state="normal")
         
-        thread = threading.Thread(target=self.run_scrape)
-        thread.daemon = True
-        thread.start()
+        self.scrape_thread = threading.Thread(target=self.run_scrape)
+        self.scrape_thread.daemon = True
+        self.scrape_thread.start()
 
     def stop_scrape(self):
-        if self.is_running:
+        if self.scrape_thread and self.scrape_thread.is_alive():
             self.stop_requested = True
-            self.add_log("已送出停止請求，等待目前任務完成中...")
-            self.stop_btn.configure(state="disabled", text="正在停止...")
+            self.add_log("🛑 正在強制終止抓取腳本...")
+            # 由於 Python 無法直接 kill thread，我們透過拋出異常來打斷
+            # 在 next iteration 檢查 stop_requested
+            self.stop_btn.configure(state="disabled", text="正在終止...")
 
     def run_scrape(self):
         try:
@@ -217,26 +218,25 @@ class App(ctk.CTk):
             
             self.add_log(f"開始抓取任務: {config.START_DATE} 至 {config.END_DATE}...")
             
-            # 定義一個檢查停止狀態的 callback 封裝
+            # 使用 callback 檢查停止狀態並拋出異常直接打斷執行
             def gui_log_callback(message):
                 if self.stop_requested:
-                    raise InterruptedError("使用者手動終止任務")
-                if message: # 只有在有訊息時才顯示日誌
+                    # 直接拋出異常來「打斷」當前 scraper 的執行流
+                    raise KeyboardInterrupt("使用者手動終止執行")
+                if message:
                     self.add_log(message)
 
-            # 使用 callback 將 scraper 的 print 訊息導向到 GUI 的 add_log
             results = scraper.run_scraper(
                 config.START_DATE, 
                 config.END_DATE, 
                 log_callback=gui_log_callback
             )
             
-        except InterruptedError as ie:
-            self.add_log(f"⚠️ {ie}")
+        except (KeyboardInterrupt, InterruptedError):
+            self.add_log("⚠️ 腳本執行已強制中斷。")
         except Exception as e:
             self.add_log(f"執行出錯: {e}")
         finally:
-            self.is_running = False
             self.stop_requested = False
             self.run_btn.configure(state="normal", text="開始執行單次抓取")
             self.stop_btn.configure(state="disabled", text="停止抓取")
