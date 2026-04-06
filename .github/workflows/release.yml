@@ -15,9 +15,15 @@ jobs:
           - os: macos-14
             target: macos-arm
             artifact_name: ezTravel-Scraper-mac-arm
+          - os: macos-13 # Intel Mac
+            target: macos-intel
+            artifact_name: ezTravel-Scraper-mac-intel
           - os: windows-latest
             target: windows-x64
             artifact_name: ezTravel-Scraper-windows-x64.exe
+          - os: ubuntu-latest # Linux x64
+            target: linux-x64
+            artifact_name: ezTravel-Scraper-linux-x64
     permissions:
       contents: write
     steps:
@@ -33,8 +39,8 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
           
-      - name: Build with PyInstaller (macOS)
-        if: matrix.os == 'macos-14'
+      - name: Build with PyInstaller (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         run: |
           pyinstaller --onefile --windowed --name ezTravel-Scraper --add-data "config.py.template:." gui_main.py
           mv dist/ezTravel-Scraper dist/${{ matrix.artifact_name }}
