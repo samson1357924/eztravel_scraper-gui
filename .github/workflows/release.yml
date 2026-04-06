@@ -1,0 +1,51 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            target: macos-arm
+            artifact_name: ezTravel-Scraper-mac-arm
+          - os: windows-latest
+            target: windows-x64
+            artifact_name: ezTravel-Scraper-windows-x64.exe
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+          
+      - name: Build with PyInstaller (macOS)
+        if: matrix.os == 'macos-14'
+        run: |
+          pyinstaller --onefile --windowed --name ezTravel-Scraper --add-data "config.py.template:." gui_main.py
+          mv dist/ezTravel-Scraper dist/${{ matrix.artifact_name }}
+          
+      - name: Build with PyInstaller (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          pyinstaller --onefile --windowed --name ezTravel-Scraper --add-data "config.py.template;." gui_main.py
+          move dist\ezTravel-Scraper.exe dist\${{ matrix.artifact_name }}
+          
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/${{ matrix.artifact_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
