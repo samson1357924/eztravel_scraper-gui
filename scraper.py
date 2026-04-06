@@ -110,12 +110,15 @@ def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務"):
                 
                 if prices:
                     min_price = min(prices)
+                    print(f"已抓取 {date.strftime('%Y-%m-%d')} 票價，當日最低價: {min_price}")
                     if min_price <= config.TARGET_PRICE:
                         found_cheap_flights.append({
                             "date": date.strftime('%Y-%m-%d'),
                             "price": min_price,
                             "link": f"https://flight.eztravel.com.tw/tickets-oneway-spk-tpe/?outbounddate={date.strftime('%d%%2F%m%%2F%Y')}"
                         })
+                else:
+                    print(f"已抓取 {date.strftime('%Y-%m-%d')} 票價，當日無票價資訊")
             else:
                 print(f"Error: {response.status_code} for {outbound_date}")
         except Exception as e:
