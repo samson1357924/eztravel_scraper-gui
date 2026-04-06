@@ -1,47 +1,26 @@
-# eztravel_scraper
+# 易遊網機票監控爬蟲 (eztravel_scraper) V1
 
-一個基於 Python 的 eztravel (易遊網) 機票爬蟲，具備 Email 與 LINE 通知功能。
+這是一個專門監控易遊網 (ezTravel) 機票價格的自動化爬蟲工具，支援 LINE 與 Email 即時通知。
 
-## 專案結構
-- `scraper.py`: 爬蟲主程式。
-- `run_schedule.py`: 排程執行器（每 15 分鐘執行一次）。
-- `config.py`: 個人設定（LINE Token、Email、目標價格）。
-- `credentials.py`: 爬蟲驗證資料（Cookies、Headers、Payload Head）。
+## 🚀 主要功能 (V1)
+- **多管道通知**：支援 LINE Messaging API v3 與 Gmail 通知。
+- **動態連結產生**：自動根據 `credentials.py` 的起降城市代碼產生成搜尋連結。
+- **即時日誌**：執行時會逐日輸出當前最低票價，方便觀察市場波動。
+- **配置與憑證分離**：透過 `config.py` 管理日期與目標價，`credentials.py` 管理瀏覽器權杖，安全性更高。
+- **格式檢測**：自動檢測設定檔是否存在且格式正確。
 
-## 教學：如何獲取最新的 Credentials
-eztravel 有防爬蟲機制，請依照以下步驟更新 `credentials.py`：
+## 🛠 設定說明
+1. **config.py**: 設定抓取日期範圍、目標價格、LINE Token 與 Email 帳密。
+2. **credentials.py**: 透過瀏覽器 F12 導出 cURL (POST /apiv2/flight/list)，使用 `curlconverter.com` 轉換為 Python 字典格式後貼入。
 
-1. 開啟瀏覽器前往 [eztravel 機票搜尋頁面](https://flight.eztravel.com.tw/)。
-2. 按下 `F12` 開啟開發者工具，切換到 **Network** 分頁。
-3. 執行一次搜尋，找到名稱為 `list` 的 POST 請求。
-4. 右鍵點擊該請求 -> **Copy** -> **Copy as cURL (bash)**。
-5. 前往 [curlconverter.com](https://curlconverter.com/) 並貼上。
-6. 將產生的內容分別填入 `credentials.py` 中的 `cookies`、`headers` 與 `payload_head` (即 json_data 中的 head 區塊)。
+## 📋 Changelog
+### [V1] - 2026-04-06
+- **SDK 升級**：將 LINE SDK 升級至 v3 版本的 `linebot.v3.messaging`。
+- **架構優化**：將日期範圍 (`START_DATE`, `END_DATE`) 移入 `config.py` 方便使用者操作。
+- **動態連結**：修正連結為動態產生，支援不同起降機場的跳轉連結。
+- **即時回報**：增加每日票價的 `print` 輸出（`已抓取 日期 票價，當日最低價: xxx`）。
+- **安全機制**：新增 `.gitignore` 排除敏感設定檔，並加入檔案格式檢測機制。
 
-## 安裝與使用
-1. 安裝依賴：`pip install requests pandas openpyxl line-bot-sdk schedule`
-2. 在 `config.py` 填入你的通知資訊。
-3. 在 `credentials.py` 填入獲取的驗證資料。
-4. 執行：`python run_schedule.py`
-
----
-
-# eztravel_scraper
-
-A Python-based scraper for eztravel flight tickets with automated Email and LINE notifications.
-
-## Project Structure
-- `scraper.py`: Main scraper logic.
-- `run_schedule.py`: Scheduler (runs every 15 minutes).
-- `config.py`: Personal settings (Tokens, Emails, Target Price).
-- `credentials.py`: Scraper credentials (Cookies, Headers, Payload Head).
-
-## Tutorial: How to obtain Credentials
-Update `credentials.py` using these steps:
-
-1. Open browser to [eztravel flight search](https://flight.eztravel.com.tw/).
-2. Press `F12`, go to **Network** tab.
-3. Perform a search, locate the `list` POST request.
-4. Right-click -> **Copy** -> **Copy as cURL (bash)**.
-5. Use [curlconverter.com](https://curlconverter.com/) to convert to Python.
-6. Fill `cookies`, `headers`, and `payload_head` in `credentials.py`.
+### [V0] - 初始版本
+- 基本爬蟲邏輯實現。
+- 基礎 LINE Notify 整合（舊版）。

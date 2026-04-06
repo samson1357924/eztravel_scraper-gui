@@ -21,8 +21,22 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 # Import external configurations
-import config
-import credentials
+try:
+    import config
+    import credentials
+    
+    # Basic field validation for critical settings
+    required_config = ['LINE_CHANNEL_ACCESS_TOKEN', 'LINE_USER_ID', 'START_DATE', 'END_DATE', 'TARGET_PRICE']
+    required_creds = ['cookies', 'headers', 'json_data']
+    
+    for field in required_config:
+        if not hasattr(config, field): raise AttributeError
+    for field in required_creds:
+        if not hasattr(credentials, field): raise AttributeError
+        
+except (ImportError, AttributeError):
+    print("檔案格式錯誤 (config.py 或 credentials.py 缺失或格式不正確)")
+    exit(1)
 
 # === Configuration ===
 configuration = Configuration(access_token=config.LINE_CHANNEL_ACCESS_TOKEN)
