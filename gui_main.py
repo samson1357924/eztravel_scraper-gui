@@ -21,30 +21,38 @@ class App(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # === 左側邊欄 (設定通知與參數) ===
-        self.sidebar_frame = ctk.CTkFrame(self, width=250, corner_radius=0)
+        # === 左側邊欄 (使用 Tabview 分組) ===
+        self.sidebar_frame = ctk.CTkFrame(self, width=280, corner_radius=0)
         self.sidebar_frame.grid(row=0, column=0, rowspan=4, sticky="nsew")
+        self.sidebar_frame.grid_rowconfigure(2, weight=1)
         
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="易遊網爬蟲", font=ctk.CTkFont(size=20, weight="bold"))
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
 
-        # LINE 設定
-        self.line_token_entry = self.create_input("LINE Token", getattr(config, 'LINE_CHANNEL_ACCESS_TOKEN', ''), 1)
-        self.line_uid_entry = self.create_input("LINE UserID", getattr(config, 'LINE_USER_ID', ''), 2)
+        # 建立分頁視窗來分類設定
+        self.tabview = ctk.CTkTabview(self.sidebar_frame, width=250)
+        self.tabview.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+        self.tabview.add("LINE")
+        self.tabview.add("Email")
+        self.tabview.add("爬蟲參數")
+
+        # LINE 分頁
+        self.line_token_entry = self.create_input("LINE Token", getattr(config, 'LINE_CHANNEL_ACCESS_TOKEN', ''), 1, self.tabview.tab("LINE"))
+        self.line_uid_entry = self.create_input("LINE UserID", getattr(config, 'LINE_USER_ID', ''), 2, self.tabview.tab("LINE"))
         
-        # Email 設定
-        self.gmail_user_entry = self.create_input("Gmail 帳號", getattr(config, 'GMAIL_USER', ''), 3)
-        self.gmail_pass_entry = self.create_input("Gmail 應用程式密碼", getattr(config, 'GMAIL_PASSWORD', ''), 4)
-        self.to_email_entry = self.create_input("接收通知 Email", getattr(config, 'TO_EMAIL', ''), 5)
+        # Email 分頁
+        self.gmail_user_entry = self.create_input("Gmail 帳號", getattr(config, 'GMAIL_USER', ''), 1, self.tabview.tab("Email"))
+        self.gmail_pass_entry = self.create_input("Gmail 應用程式密碼", getattr(config, 'GMAIL_PASSWORD', ''), 2, self.tabview.tab("Email"))
+        self.to_email_entry = self.create_input("接收通知 Email", getattr(config, 'TO_EMAIL', ''), 3, self.tabview.tab("Email"))
 
-        # 爬蟲參數
-        self.target_price_entry = self.create_input("目標價格", str(getattr(config, 'TARGET_PRICE', 4000)), 6)
-        self.start_date_entry = self.create_input("開始日期 (YYYY-MM-DD)", getattr(config, 'START_DATE', '2026-06-01'), 7)
-        self.end_date_entry = self.create_input("結束日期 (YYYY-MM-DD)", getattr(config, 'END_DATE', '2026-07-01'), 8)
+        # 爬蟲參數 分頁
+        self.target_price_entry = self.create_input("目標價格", str(getattr(config, 'TARGET_PRICE', 4000)), 1, self.tabview.tab("爬蟲參數"))
+        self.start_date_entry = self.create_input("開始日期 (YYYY-MM-DD)", getattr(config, 'START_DATE', '2026-06-01'), 2, self.tabview.tab("爬蟲參數"))
+        self.end_date_entry = self.create_input("結束日期 (YYYY-MM-DD)", getattr(config, 'END_DATE', '2026-07-01'), 3, self.tabview.tab("爬蟲參數"))
 
-        # 保存按鈕 (再往下移至 row 18)
+        # 保存按鈕
         self.save_btn = ctk.CTkButton(self.sidebar_frame, text="儲存設定", command=self.save_settings)
-        self.save_btn.grid(row=18, column=0, padx=20, pady=20)
+        self.save_btn.grid(row=3, column=0, padx=20, pady=20)
 
         # === 右側主視窗 ===
         # 1. 憑證編輯區
@@ -73,10 +81,11 @@ class App(ctk.CTk):
         self.run_btn = ctk.CTkButton(self.button_frame, text="執行單次抓取", command=self.start_scrape_thread, fg_color="green", hover_color="#006400")
         self.run_btn.pack(side="left", padx=10)
 
-    def create_input(self, label_text, default_value, row):
-        label = ctk.CTkLabel(self.sidebar_frame, text=label_text, anchor="w")
+    def create_input(self, label_text, default_value, row, master=None):
+        if master is None: master = self.sidebar_frame
+        label = ctk.CTkLabel(master, text=label_text, anchor="w")
         label.grid(row=row*2-1, column=0, padx=20, pady=(5, 0), sticky="w")
-        entry = ctk.CTkEntry(self.sidebar_frame)
+        entry = ctk.CTkEntry(master)
         entry.insert(0, default_value)
         entry.grid(row=row*2, column=0, padx=20, pady=(0, 10), sticky="ew")
         return entry
