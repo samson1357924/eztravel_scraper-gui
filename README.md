@@ -1,39 +1,37 @@
-# 易遊網機票監控爬蟲 (eztravel_scraper) V1
+# 易遊網機票監控爬蟲 GUI 版 (eztravel_scraper-gui) V1.0.1
 
-這是一個專門監控易遊網 (ezTravel) 機票價格的自動化爬蟲工具，支援 LINE 與 Email 即時通知。
+這是一個具備現代化圖形介面 (GUI) 的易遊網 (ezTravel) 機票監控工具，專為需要直觀操作與多平台執行的使用者設計。
 
-## 🚀 主要功能 (V1)
-... (略)
+## 🌟 V2-GUI 特色
+- **現代化介面**：採用 CustomTkinter 打造深色模式介面。
+- **全平台支援**：提供 Windows x64, Mac (ARM & Intel), 以及 Linux 執行檔。
+- **即時日誌系統**：GUI 內建日誌視窗，即時回饋抓取進度與票價。
+- **分頁管理**：將 LINE、Email 通知與爬蟲參數分門別類，操作更直觀。
+- **自動排程監控**：支援自定義分鐘數的自動循環監控，並具備倒數計時功能。
+- **安全保護**：自動生成設定檔範本，且具備 Git 忽略機制保護個人隱私。
 
 ## 🛠 操作教學
-1. **環境準備**:
-   - 確保安裝 Python 3.10+。
-   - 執行 `pip install -r requirements.txt` 安裝必要套件。
-
-2. **取得憑證 (Credentials)**:
-   - 開啟瀏覽器，登入易遊網並進入機票搜尋頁面。
-   - 按下 `F12` 開啟開發者工具，切換到 `Network` 標籤。
-   - 執行一次搜尋任務，找到 `POST` 到 `/apiv2/flight/list` 的請求。
-   - 右鍵點擊該請求 -> `Copy` -> `Copy as cURL (bash)`。
-   - 前往 [curlconverter.com](https://curlconverter.com/python/)，將 cURL 貼入並轉換為 Python。
-   - 將產生的 `cookies`, `headers`, `json_data` 貼入 `credentials.py`。
-
-3. **進行設定 (Config)**:
-   - 編輯 `config.py`，填入你的 LINE Channel Access Token 與 User ID。
-   - 設定目標價格 `TARGET_PRICE` 與抓取日期範圍 `START_DATE`, `END_DATE`。
-
-4. **執行爬蟲**:
-   - 執行 `python3 scraper.py` 進行單次測試。
-   - 執行 `python3 run_schedule.py` 開啟自動化排程（預設每 15 分鐘抓取一次）。
+1. **下載執行檔**：
+   - 前往 [Releases](https://github.com/samson1357924/eztravel_scraper-gui/releases) 下載適合你系統的執行檔。
+2. **基本設定**：
+   - 啟動程式後，進入 **「LINE 設定」** 或 **「Email 設定」** 填入你的 Token 或帳密，並點擊開關啟用。
+   - 在 **「爬蟲參數」** 設定目標價格與日期範圍。
+   - 在右側 **「瀏覽器憑證」** 區貼入從 `curlconverter.com` 產生的程式碼。
+3. **開始抓取**：
+   - 點擊 **「儲存設定」** 確保所有變更已寫入。
+   - 點擊 **「開始執行單次抓取」** 進行測試，或 **「啟動自動監控」** 開啟長期監測。
 
 ## 📋 Changelog
-### [V1] - 2026-04-06
-- **SDK 升級**：將 LINE SDK 升級至 v3 版本的 `linebot.v3.messaging`。
-- **架構優化**：將日期範圍 (`START_DATE`, `END_DATE`) 移入 `config.py` 方便使用者操作。
-- **動態連結**：修正連結為動態產生，支援不同起降機場的跳轉連結。
-- **即時回報**：增加每日票價的 `print` 輸出（`已抓取 日期 票價，當日最低價: xxx`）。
-- **安全機制**：新增 `.gitignore` 排除敏感設定檔，並加入檔案格式檢測機制。
+### [V1.0.1] - 2026-04-06
+- **全平台發佈**：新增對 Intel Mac 與 Linux x64 的構建支援。
+- **即時開關**：通知功能的啟用開關現在改為點擊即生效，不需手動點擊儲存即可切換狀態。
 
-### [V0] - 初始版本
-- 基本爬蟲邏輯實現。
-- 基礎 LINE Notify 整合（舊版）。
+### [V1.0.0] - 2026-04-06 (正式版發佈)
+- **GUI 介面實作**：全面從 CLI 遷移至 CustomTkinter 圖形介面。
+- **自動排程系統**：新增自定義分鐘數的自動監控功能與倒數計時顯示。
+- **強制終止機制**：新增「停止抓取」按鈕，可立即打斷正在執行的背景腳本。
+- **自動初始化**：當設定檔缺失時，程式啟動時會自動補齊預設檔案。
+- **CI/CD 整合**：建立 GitHub Actions 自動構建 Windows 與 Mac ARM 執行檔。
+
+## ⚖️ License
+本專案採用 **MIT License**。
