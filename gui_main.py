@@ -166,10 +166,29 @@ class App(ctk.CTk):
         importlib.reload(config)
 
     def load_settings_from_file(self):
-        """從 config.py 實體檔案讀取內容並填入 Entry 欄位"""
+        """從 config.py 實體檔案讀取內容並填入 Entry 欄位，若不存在則自動生成"""
         if not os.path.exists("config.py"):
-            return
-            
+            self.add_log("找不到 config.py，正在生成預設設定檔...")
+            with open("config.py", "w", encoding="utf-8") as f:
+                f.write("LINE_ENABLE = True\n")
+                f.write("LINE_CHANNEL_ACCESS_TOKEN = 'YOUR_LINE_TOKEN'\n")
+                f.write("LINE_USER_ID = 'YOUR_LINE_USER_ID'\n")
+                f.write("EMAIL_ENABLE = True\n")
+                f.write("GMAIL_USER = 'YOUR_EMAIL@gmail.com'\n")
+                f.write("GMAIL_PASSWORD = 'YOUR_GMAIL_APP_PASSWORD'\n")
+                f.write("TO_EMAIL = 'RECEIVER_EMAIL@gmail.com'\n")
+                f.write("TARGET_PRICE = 4000\n")
+                f.write("START_DATE = '2026-06-01'\n")
+                f.write("END_DATE = '2026-07-01'\n")
+        
+        if not os.path.exists("credentials.py"):
+            self.add_log("找不到 credentials.py，正在生成預設憑證檔...")
+            with open("credentials.py", "w", encoding="utf-8") as f:
+                f.write("# === Scraper Credentials ===\n")
+                f.write("cookies = {}\n")
+                f.write("headers = {}\n")
+                f.write("json_data = {'data': {'fromCityCode': 'SPK', 'toCityCode': 'TPE', 'outboundDate': '01/06/2026'}}\n")
+
         try:
             settings = {}
             with open("config.py", "r", encoding="utf-8") as f:
