@@ -18,6 +18,14 @@
    - 在下方獨立方塊中設定目標價格、日期與監控頻率。
    - 在右側 **「瀏覽器憑證」** 區貼入轉換後的 cURL 程式碼。
 
+### 🔑 取得憑證 (Credentials) 教學
+1. **開啟瀏覽器**: 登入易遊網並進入機票搜尋頁面。
+2. **開啟開發者工具**: 按下 `F12`，切換到 `Network` (網路) 標籤。
+3. **執行搜尋**: 在網頁執行一次搜尋任務，找到一個 `POST` 到 `/apiv2/flight/list` 的請求。
+4. **複製 cURL**: 右鍵點擊該請求 -> `Copy` -> `Copy as cURL (bash)`。
+5. **轉換格式**: 前往 [curlconverter.com/python/](https://curlconverter.com/python/)，將 cURL 貼入。
+6. **貼入程式**: 將產生的 `cookies`, `headers`, `json_data` 完整內容貼入 GUI 右側的「瀏覽器憑證」區域。
+
 ### 🍎 macOS 使用者注意 (未認證開發者繞過)
 由於此執行檔未經過 Apple 付費簽名，初次啟動時會被 macOS 攔截。請按照以下步驟開啟：
 1. **右鍵開啟**：在下載解壓後的 `ezTravel-Scraper` 檔案上按 **「右鍵」**，選擇 **「打開」**。
