@@ -45,7 +45,8 @@ class App(ctk.CTk):
 
         # LINE 分頁
         self.line_enable_var = ctk.BooleanVar(value=getattr(config, 'LINE_ENABLE', True))
-        self.line_enable_switch = ctk.CTkSwitch(self.tabview.tab("LINE 設定"), text="啟用 LINE 通知", variable=self.line_enable_var)
+        self.line_enable_switch = ctk.CTkSwitch(self.tabview.tab("LINE 設定"), text="啟用 LINE 通知", 
+                                                variable=self.line_enable_var, command=self.quick_save_line_enable)
         self.line_enable_switch.grid(row=0, column=0, padx=20, pady=(10, 5), sticky="w")
         
         self.line_token_entry = self.create_input("LINE 通道存取權杖 (Token)", getattr(config, 'LINE_CHANNEL_ACCESS_TOKEN', ''), 1, self.tabview.tab("LINE 設定"))
@@ -53,7 +54,8 @@ class App(ctk.CTk):
         
         # Email 分頁
         self.email_enable_var = ctk.BooleanVar(value=getattr(config, 'EMAIL_ENABLE', True))
-        self.email_enable_switch = ctk.CTkSwitch(self.tabview.tab("Email 設定"), text="啟用 Email 通知", variable=self.email_enable_var)
+        self.email_enable_switch = ctk.CTkSwitch(self.tabview.tab("Email 設定"), text="啟用 Email 通知", 
+                                                 variable=self.email_enable_var, command=self.quick_save_email_enable)
         self.email_enable_switch.grid(row=0, column=0, padx=20, pady=(10, 5), sticky="w")
         
         self.gmail_user_entry = self.create_input("Gmail 帳號", getattr(config, 'GMAIL_USER', ''), 1, self.tabview.tab("Email 設定"))
@@ -130,6 +132,38 @@ class App(ctk.CTk):
         self.log_textbox.insert("end", f"[{datetime.now().strftime('%H:%M:%S')}] {text}\n")
         self.log_textbox.see("end")
         self.log_textbox.configure(state="disabled")
+
+    def quick_save_line_enable(self):
+        """僅更新 LINE 的啟用/暫停狀態，不觸動其他欄位"""
+        self.update_single_config("LINE_ENABLE", str(self.line_enable_var.get()))
+        status = "啟用" if self.line_enable_var.get() else "停用"
+        self.add_log(f"已立即{status} LINE 通知。")
+
+    def quick_save_email_enable(self):
+        """僅更新 Email 的啟用/暫停狀態，不觸動其他欄位"""
+        self.update_single_config("EMAIL_ENABLE", str(self.email_enable_var.get()))
+        status = "啟用" if self.email_enable_var.get() else "停用"
+        self.add_log(f"已立即{status} Email 通知。")
+
+    def update_single_config(self, key_to_update, new_value):
+        """通用函數：讀取並更新 config.py 中的單一鍵值"""
+        current_config = {}
+        if os.path.exists("config.py"):
+            with open("config.py", "r", encoding="utf-8") as f:
+                for line in f:
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        current_config[k.strip()] = v.strip()
+        
+        current_config[key_to_update] = new_value
+        
+        with open("config.py", "w", encoding="utf-8") as f:
+            for k, v in current_config.items():
+                f.write(f"{k} = {v}\n")
+        
+        # 強制重新載入 config 模組，確保背景執行緒能讀到最新狀態
+        import importlib
+        importlib.reload(config)
 
     def load_settings_from_file(self):
         """從 config.py 實體檔案讀取內容並填入 Entry 欄位"""
