@@ -76,6 +76,11 @@ def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務"):
 
     # Use the full template from credentials.py
     base_payload = credentials.json_data
+    
+    # 動態產生連結基礎 (根據 credentials 中的起降城市代碼)
+    from_city = base_payload.get('data', {}).get('fromCityCode', 'SPK').lower()
+    to_city = base_payload.get('data', {}).get('toCityCode', 'TPE').lower()
+    link_base = f"https://flight.eztravel.com.tw/tickets-oneway-{from_city}-{to_city}/"
 
     for date in date_range:
         outbound_date = date.strftime('%d/%m/%Y')
@@ -115,7 +120,7 @@ def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務"):
                         found_cheap_flights.append({
                             "date": date.strftime('%Y-%m-%d'),
                             "price": min_price,
-                            "link": f"https://flight.eztravel.com.tw/tickets-oneway-spk-tpe/?outbounddate={date.strftime('%d%%2F%m%%2F%Y')}"
+                            "link": f"{link_base}?outbounddate={date.strftime('%d%%2F%m%%2F%Y')}"
                         })
                 else:
                     print(f"已抓取 {date.strftime('%Y-%m-%d')} 票價，當日無票價資訊")
@@ -133,5 +138,5 @@ def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務"):
     return found_cheap_flights
 
 if __name__ == "__main__":
-    # Default search range
-    run_scraper('2026-06-01', '2026-07-01')
+    # 使用 config.py 中設定的日期範圍
+    run_scraper(config.START_DATE, config.END_DATE)
