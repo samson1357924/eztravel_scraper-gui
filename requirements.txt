@@ -2,3 +2,4 @@ requests
 pandas
 openpyxl
 line-bot-sdk>=3.0.0
+customtkinter
