@@ -19,7 +19,7 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("易遊網機票爬蟲-gui (Excel 支援版)")
-        self.geometry("900x720")
+        self.geometry("1000x880") # 增加預設高度至 880
         
         # 設定全域字體物件
         self.main_font = ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14)
@@ -44,12 +44,8 @@ class App(ctk.CTk):
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="易遊網爬蟲", font=self.title_font)
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 5))
 
-        # 保存按鈕 (上移)
-        self.save_btn = ctk.CTkButton(self.sidebar_frame, text="儲存目前分頁設定", command=self.save_settings, font=self.main_font)
-        self.save_btn.grid(row=1, column=0, padx=20, pady=(0, 10))
-
-        # 建立分頁視窗
-        self.tabview = ctk.CTkTabview(self.sidebar_frame, width=250)
+        # 建立分頁視窗 (固定高度確保不遮擋下方參數)
+        self.tabview = ctk.CTkTabview(self.sidebar_frame, width=250, height=320)
         try:
             self.tabview._segmented_button.configure(font=self.label_font)
         except:
@@ -74,6 +70,8 @@ class App(ctk.CTk):
         self.email_enable_switch = ctk.CTkSwitch(self.tabview.tab("Email 設定"), text="啟用 Email 通知", 
                                                  variable=self.email_enable_var, command=self.quick_save_email_enable, font=self.label_font)
         self.email_enable_switch.grid(row=0, column=0, padx=20, pady=(10, 5), sticky="w")
+        
+        # 增加 Email 欄位的 pady 間距，並確保第三個欄位有足夠空間
         self.gmail_user_entry = self.create_input("Gmail 帳號", getattr(config, 'GMAIL_USER', ''), 1, self.tabview.tab("Email 設定"))
         self.gmail_pass_entry = self.create_input("Gmail 密碼", getattr(config, 'GMAIL_PASSWORD', ''), 2, self.tabview.tab("Email 設定"))
         self.to_email_entry = self.create_input("接收通知 Email", getattr(config, 'TO_EMAIL', ''), 3, self.tabview.tab("Email 設定"))
@@ -116,6 +114,10 @@ class App(ctk.CTk):
 
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.button_frame.grid(row=4, column=1, padx=20, pady=20, sticky="e")
+        
+        self.save_btn = ctk.CTkButton(self.button_frame, text="儲存設定", command=self.save_settings, font=self.main_font, fg_color="orange", hover_color="#FF8C00")
+        self.save_btn.pack(side="left", padx=10)
+        
         self.run_btn = ctk.CTkButton(self.button_frame, text="執行單次抓取", command=self.start_scrape_thread, fg_color="green", font=self.main_font)
         self.run_btn.pack(side="left", padx=10)
         self.schedule_btn = ctk.CTkButton(self.button_frame, text="啟動自動監控", command=self.toggle_schedule, fg_color="#1f538d", font=self.main_font)
@@ -186,32 +188,36 @@ class App(ctk.CTk):
                 for line in f:
                     if "=" in line: k, v = line.split("=", 1); c[k.strip()] = v.strip()
         
-        # 永遠儲存底部的「爬蟲參數」
+        # 儲存底部的「爬蟲參數」
         c["TARGET_PRICE"] = self.target_price_entry.get()
         c["START_DATE"] = f"'{self.start_date_entry.get()}'"
         c["END_DATE"] = f"'{self.end_date_entry.get()}'"
         c["INTERVAL_MINS"] = self.interval_entry.get()
 
-        # 根據分頁儲存通知與記錄設定
-        t = self.tabview.get()
-        if t == "LINE 設定":
-            c["LINE_ENABLE"] = str(self.line_enable_var.get())
-            c["LINE_CHANNEL_ACCESS_TOKEN"] = f"'{self.line_token_entry.get()}'"
-            c["LINE_USER_ID"] = f"'{self.line_uid_entry.get()}'"
-        elif t == "Email 設定":
-            c["EMAIL_ENABLE"] = str(self.email_enable_var.get())
-            c["GMAIL_USER"] = f"'{self.gmail_user_entry.get()}'"
-            c["GMAIL_PASSWORD"] = f"'{self.gmail_pass_entry.get()}'"
-            c["TO_EMAIL"] = f"'{self.to_email_entry.get()}'"
-        elif t == "Excel 記錄":
-            c["EXCEL_ENABLE"] = str(self.excel_enable_var.get())
-            c["EXCEL_FILENAME"] = f"'{self.excel_filename_entry.get()}'"
-            c["EXCEL_TOP_N"] = self.excel_top_n_entry.get()
+        # 儲存所有分頁的設定 (LINE, Email, Excel)
+        c["LINE_ENABLE"] = str(self.line_enable_var.get())
+        c["LINE_CHANNEL_ACCESS_TOKEN"] = f"'{self.line_token_entry.get()}'"
+        c["LINE_USER_ID"] = f"'{self.line_uid_entry.get()}'"
+        
+        c["EMAIL_ENABLE"] = str(self.email_enable_var.get())
+        c["GMAIL_USER"] = f"'{self.gmail_user_entry.get()}'"
+        c["GMAIL_PASSWORD"] = f"'{self.gmail_pass_entry.get()}'"
+        c["TO_EMAIL"] = f"'{self.to_email_entry.get()}'"
+        
+        c["EXCEL_ENABLE"] = str(self.excel_enable_var.get())
+        c["EXCEL_FILENAME"] = f"'{self.excel_filename_entry.get()}'"
+        c["EXCEL_TOP_N"] = self.excel_top_n_entry.get()
+
         with open("config.py", "w", encoding="utf-8") as f:
             for k, v in c.items(): f.write(f"{k} = {v}\n")
+            
+        # 儲存瀏覽器憑證
         with open("credentials.py", "w", encoding="utf-8") as f:
             f.write(self.creds_textbox.get("1.0", "end-1c"))
-        self.add_log("設定已儲存。")
+            
+        import importlib
+        importlib.reload(config)
+        self.add_log("✅ 所有設定與憑證已成功儲存。")
 
     def toggle_schedule(self):
         if not self.is_scheduled:

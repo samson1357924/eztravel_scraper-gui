@@ -86,10 +86,6 @@ def send_notifications(found_flights):
     else:
         print("Email 通知已停用，跳過發送。")
 
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import PatternFill, Font
-import os
-
 def record_to_excel(results, start_date_str, end_date_str):
     """將爬蟲結果記錄到 Excel，格式參考用戶提供圖片"""
     if not getattr(config, 'EXCEL_ENABLE', False):
@@ -124,9 +120,15 @@ def record_to_excel(results, start_date_str, end_date_str):
         ws = wb.active
         ws.append(headers)
 
-    # 檢查現有表頭是否匹配，若不匹配則在下方重新插入一組新表頭（不破壞公式）
-    current_headers = [cell.value for cell in ws[1]] if ws.max_row >= 1 else []
-    if current_headers != headers:
+    # 檢查現有最後一組表頭是否匹配，若不匹配或檔案全新則插入表頭
+    last_row_values = []
+    if ws.max_row >= 1:
+        last_row_values = [cell.value for cell in ws[ws.max_row]]
+    
+    # 如果最後一列不是表頭且 max_row > 0，或者表頭內容不匹配，則添加表頭
+    if not last_row_values or (last_row_values[0] != "Time" and "Time" not in last_row_values):
+        ws.append(headers)
+    elif last_row_values != headers and last_row_values[0] == "Time":
         ws.append([]) # 空行分隔
         ws.append(headers)
         
