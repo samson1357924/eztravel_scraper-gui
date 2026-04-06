@@ -60,7 +60,6 @@ class App(ctk.CTk):
         self.tabview.add("LINE 設定")
         self.tabview.add("Email 設定")
         self.tabview.add("Excel 記錄")
-        self.tabview.add("爬蟲參數")
 
         # --- LINE 分頁 ---
         self.line_enable_var = ctk.BooleanVar(value=getattr(config, 'LINE_ENABLE', True))
@@ -87,14 +86,18 @@ class App(ctk.CTk):
         self.excel_filename_entry = self.create_input("Excel 檔名", getattr(config, 'EXCEL_FILENAME', 'prices.xlsx'), 1, self.tabview.tab("Excel 記錄"))
         self.excel_top_n_entry = self.create_input("記錄前 N 低票價", str(getattr(config, 'EXCEL_TOP_N', 3)), 2, self.tabview.tab("Excel 記錄"))
 
-        # --- 爬蟲參數 分頁 ---
-        self.target_price_entry = self.create_input("目標價格 (台幣)", str(getattr(config, 'TARGET_PRICE', 4000)), 1, self.tabview.tab("爬蟲參數"))
-        self.start_date_entry = self.create_input("開始日期", getattr(config, 'START_DATE', '2026-06-01'), 2, self.tabview.tab("爬蟲參數"))
-        self.end_date_entry = self.create_input("結束日期", getattr(config, 'END_DATE', '2026-07-01'), 3, self.tabview.tab("爬蟲參數"))
-        self.interval_label = ctk.CTkLabel(self.tabview.tab("爬蟲參數"), text="監控頻率 (分)", anchor="w", font=self.label_font)
+        # --- 獨立的爬蟲參數方塊 (在 Tabview 下方) ---
+        self.params_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
+        self.params_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="nsew")
+        
+        self.target_price_entry = self.create_input("目標價格 (台幣)", str(getattr(config, 'TARGET_PRICE', 4000)), 1, self.params_frame)
+        self.start_date_entry = self.create_input("開始日期", getattr(config, 'START_DATE', '2026-06-01'), 2, self.params_frame)
+        self.end_date_entry = self.create_input("結束日期", getattr(config, 'END_DATE', '2026-07-01'), 3, self.params_frame)
+        
+        self.interval_label = ctk.CTkLabel(self.params_frame, text="監控頻率 (分)", anchor="w", font=self.label_font)
         self.interval_label.grid(row=7, column=0, padx=20, pady=(5, 0), sticky="w")
-        self.interval_entry = ctk.CTkEntry(self.tabview.tab("爬蟲參數"))
-        self.interval_entry.insert(0, "15")
+        self.interval_entry = ctk.CTkEntry(self.params_frame)
+        self.interval_entry.insert(0, str(getattr(config, 'INTERVAL_MINS', 15)))
         self.interval_entry.grid(row=8, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         # === 右側主視窗 ===
@@ -170,6 +173,7 @@ class App(ctk.CTk):
             if "TO_EMAIL" in s: self.to_email_entry.delete(0, "end"); self.to_email_entry.insert(0, s["TO_EMAIL"])
             if "EXCEL_FILENAME" in s: self.excel_filename_entry.delete(0, "end"); self.excel_filename_entry.insert(0, s["EXCEL_FILENAME"])
             if "EXCEL_TOP_N" in s: self.excel_top_n_entry.delete(0, "end"); self.excel_top_n_entry.insert(0, s["EXCEL_TOP_N"])
+            if "INTERVAL_MINS" in s: self.interval_entry.delete(0, "end"); self.interval_entry.insert(0, s["INTERVAL_MINS"])
             if "TARGET_PRICE" in s: self.target_price_entry.delete(0, "end"); self.target_price_entry.insert(0, s["TARGET_PRICE"])
             if "START_DATE" in s: self.start_date_entry.delete(0, "end"); self.start_date_entry.insert(0, s["START_DATE"])
             if "END_DATE" in s: self.end_date_entry.delete(0, "end"); self.end_date_entry.insert(0, s["END_DATE"])
@@ -181,6 +185,14 @@ class App(ctk.CTk):
             with open("config.py", "r", encoding="utf-8") as f:
                 for line in f:
                     if "=" in line: k, v = line.split("=", 1); c[k.strip()] = v.strip()
+        
+        # 永遠儲存底部的「爬蟲參數」
+        c["TARGET_PRICE"] = self.target_price_entry.get()
+        c["START_DATE"] = f"'{self.start_date_entry.get()}'"
+        c["END_DATE"] = f"'{self.end_date_entry.get()}'"
+        c["INTERVAL_MINS"] = self.interval_entry.get()
+
+        # 根據分頁儲存通知與記錄設定
         t = self.tabview.get()
         if t == "LINE 設定":
             c["LINE_ENABLE"] = str(self.line_enable_var.get())
@@ -195,10 +207,6 @@ class App(ctk.CTk):
             c["EXCEL_ENABLE"] = str(self.excel_enable_var.get())
             c["EXCEL_FILENAME"] = f"'{self.excel_filename_entry.get()}'"
             c["EXCEL_TOP_N"] = self.excel_top_n_entry.get()
-        elif t == "爬蟲參數":
-            c["TARGET_PRICE"] = self.target_price_entry.get()
-            c["START_DATE"] = f"'{self.start_date_entry.get()}'"
-            c["END_DATE"] = f"'{self.end_date_entry.get()}'"
         with open("config.py", "w", encoding="utf-8") as f:
             for k, v in c.items(): f.write(f"{k} = {v}\n")
         with open("credentials.py", "w", encoding="utf-8") as f:
