@@ -80,7 +80,13 @@ def send_notifications(found_flights):
     except Exception as e:
         print(f"Failed to send Email notification: {e}")
 
-def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務"):
+def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務", log_callback=None):
+    def log(message):
+        if log_callback:
+            log_callback(message)
+        else:
+            print(message)
+
     start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
     end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
     date_range = [start_date + timedelta(days=x) for x in range((end_date - start_date).days + 1)]
@@ -106,7 +112,7 @@ def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務"):
         if 'data' in payload:
             payload['data']['outboundDate'] = outbound_date
         else:
-            print("Warning: 'data' key not found in json_data from credentials.py")
+            log("警告: 在 credentials.py 的 json_data 中找不到 'data' 鍵值")
             continue
 
         try:
@@ -129,7 +135,7 @@ def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務"):
                 
                 if prices:
                     min_price = min(prices)
-                    print(f"已抓取 {date.strftime('%Y-%m-%d')} 票價，當日最低價: {min_price}")
+                    log(f"已抓取 {date.strftime('%Y-%m-%d')} 票價，當日最低價: {min_price}")
                     if min_price <= config.TARGET_PRICE:
                         found_cheap_flights.append({
                             "date": date.strftime('%Y-%m-%d'),
@@ -137,17 +143,17 @@ def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務"):
                             "link": f"{link_base}?outbounddate={date.strftime('%d%%2F%m%%2F%Y')}"
                         })
                 else:
-                    print(f"已抓取 {date.strftime('%Y-%m-%d')} 票價，當日無票價資訊")
+                    log(f"已抓取 {date.strftime('%Y-%m-%d')} 票價，當日無票價資訊")
             else:
-                print(f"Error: {response.status_code} for {outbound_date}")
+                log(f"錯誤: HTTP {response.status_code} (日期: {outbound_date})")
         except Exception as e:
-            print(f"Exception for {outbound_date}: {e}")
+            log(f"例外狀況 ({outbound_date}): {e}")
 
     if found_cheap_flights:
-        print(f"[{current_time}] Found {len(found_cheap_flights)} flights under budget!")
+        log(f"[{current_time}] 任務完成！發現 {len(found_cheap_flights)} 筆低於目標價的機票。")
         send_notifications(found_cheap_flights)
     else:
-        print(f"[{current_time}] No flights under target price.")
+        log(f"[{current_time}] 任務完成，未發現低於目標價的機票。")
     
     return found_cheap_flights
 

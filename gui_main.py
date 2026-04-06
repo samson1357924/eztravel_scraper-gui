@@ -125,22 +125,21 @@ class App(ctk.CTk):
             # 重新載入 config 以確保使用最新值
             import importlib
             importlib.reload(config)
+            importlib.reload(scraper)
             
             self.add_log(f"開始抓取任務: {config.START_DATE} 至 {config.END_DATE}...")
             
-            # 使用我們原本的 scraper 邏輯
-            # 注意：這裡我們需要修改 scraper.py 的 print，讓它能導向到 GUI，或者手動調用
-            results = scraper.run_scraper(config.START_DATE, config.END_DATE)
+            # 使用 callback 將 scraper 的 print 訊息導向到 GUI 的 add_log
+            results = scraper.run_scraper(
+                config.START_DATE, 
+                config.END_DATE, 
+                log_callback=self.add_log
+            )
             
-            if results:
-                self.add_log(f"任務完成！發現 {len(results)} 筆便宜機票。")
-            else:
-                self.add_log("任務完成，未發現低於目標價的機票。")
-
         except Exception as e:
             self.add_log(f"執行出錯: {e}")
         finally:
-            self.run_btn.configure(state="normal", text="執行單次抓取")
+            self.run_btn.configure(state="normal", text="開始執行單次抓取")
 
 if __name__ == "__main__":
     app = App()
