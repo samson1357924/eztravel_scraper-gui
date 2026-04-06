@@ -1,4 +1,4 @@
-# 易遊網機票監控爬蟲 GUI 版 (eztravel_scraper-gui) V1.0.1
+# 易遊網機票爬蟲-gui (eztravel_scraper-gui) V1.0.1
 
 這是一個具備現代化圖形介面 (GUI) 的易遊網 (ezTravel) 機票監控工具，專為需要直觀操作與多平台執行的使用者設計。
 
