@@ -3,15 +3,28 @@
 這是一個專門監控易遊網 (ezTravel) 機票價格的自動化爬蟲工具，支援 LINE 與 Email 即時通知。
 
 ## 🚀 主要功能 (V1)
-- **多管道通知**：支援 LINE Messaging API v3 與 Gmail 通知。
-- **動態連結產生**：自動根據 `credentials.py` 的起降城市代碼產生成搜尋連結。
-- **即時日誌**：執行時會逐日輸出當前最低票價，方便觀察市場波動。
-- **配置與憑證分離**：透過 `config.py` 管理日期與目標價，`credentials.py` 管理瀏覽器權杖，安全性更高。
-- **格式檢測**：自動檢測設定檔是否存在且格式正確。
+... (略)
 
-## 🛠 設定說明
-1. **config.py**: 設定抓取日期範圍、目標價格、LINE Token 與 Email 帳密。
-2. **credentials.py**: 透過瀏覽器 F12 導出 cURL (POST /apiv2/flight/list)，使用 `curlconverter.com` 轉換為 Python 字典格式後貼入。
+## 🛠 操作教學
+1. **環境準備**:
+   - 確保安裝 Python 3.10+。
+   - 執行 `pip install -r requirements.txt` 安裝必要套件。
+
+2. **取得憑證 (Credentials)**:
+   - 開啟瀏覽器，登入易遊網並進入機票搜尋頁面。
+   - 按下 `F12` 開啟開發者工具，切換到 `Network` 標籤。
+   - 執行一次搜尋任務，找到 `POST` 到 `/apiv2/flight/list` 的請求。
+   - 右鍵點擊該請求 -> `Copy` -> `Copy as cURL (bash)`。
+   - 前往 [curlconverter.com](https://curlconverter.com/python/)，將 cURL 貼入並轉換為 Python。
+   - 將產生的 `cookies`, `headers`, `json_data` 貼入 `credentials.py`。
+
+3. **進行設定 (Config)**:
+   - 編輯 `config.py`，填入你的 LINE Channel Access Token 與 User ID。
+   - 設定目標價格 `TARGET_PRICE` 與抓取日期範圍 `START_DATE`, `END_DATE`。
+
+4. **執行爬蟲**:
+   - 執行 `python3 scraper.py` 進行單次測試。
+   - 執行 `python3 run_schedule.py` 開啟自動化排程（預設每 15 分鐘抓取一次）。
 
 ## 📋 Changelog
 ### [V1] - 2026-04-06
