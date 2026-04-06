@@ -103,6 +103,14 @@ def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務", lo
     link_base = f"https://flight.eztravel.com.tw/tickets-oneway-{from_city}-{to_city}/"
 
     for date in date_range:
+        # 檢查是否需要終止
+        if log_callback:
+            try:
+                log_callback(None) # 傳入 None 作為心跳檢查
+            except Exception:
+                log("任務已被使用者手動中止。")
+                return found_cheap_flights
+
         outbound_date = date.strftime('%d/%m/%Y')
         
         # Create a deep copy to avoid modifying the template, and update the date
