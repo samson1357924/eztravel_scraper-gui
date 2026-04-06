@@ -78,9 +78,6 @@ class App(ctk.CTk):
         self.save_btn = ctk.CTkButton(self.sidebar_frame, text="儲存設定", command=self.save_settings)
         self.save_btn.grid(row=3, column=0, padx=20, pady=20)
 
-        # 啟動時讀取 config.py 並填入內容 (確保獲取最新實體檔案內容)
-        self.load_settings_from_file()
-
         # === 右側主視窗 ===
         # 1. 憑證編輯區
         self.creds_label = ctk.CTkLabel(self, text="瀏覽器憑證 (請貼入 credentials.py 的程式碼內容):", font=ctk.CTkFont(size=14, weight="bold"))
@@ -117,6 +114,14 @@ class App(ctk.CTk):
         # 倒數計時顯示
         self.timer_label = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=12))
         self.timer_label.grid(row=5, column=1, padx=20, pady=(0, 10), sticky="e")
+
+        # 啟動時讀取 config.py 並填入內容 (確保獲取最新實體檔案內容)
+        # 移到最後，確保 log_textbox 已初始化
+        self.load_settings_from_file()
+
+        # 啟動時讀取 config.py 並填入內容 (確保獲取最新實體檔案內容)
+        # 移到最後，確保 log_textbox 已初始化，否則呼叫 add_log 會報錯
+        self.load_settings_from_file()
 
     def create_input(self, label_text, default_value, row, master=None):
         if master is None: master = self.sidebar_frame
