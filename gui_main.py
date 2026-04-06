@@ -15,11 +15,14 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("ezTravel Flight Scraper V2-GUI")
-        self.geometry("900x650")
+        self.geometry("900x680")
         
         # 狀態控制
         self.scrape_thread = None
         self.stop_requested = False
+        self.is_scheduled = False
+        self.next_run_time = None
+        self.timer_job = None
 
         # 網格配置 (2x2)
         self.grid_columnconfigure(1, weight=1)
@@ -53,6 +56,13 @@ class App(ctk.CTk):
         self.target_price_entry = self.create_input("目標價格 (台幣)", str(getattr(config, 'TARGET_PRICE', 4000)), 1, self.tabview.tab("爬蟲參數"))
         self.start_date_entry = self.create_input("開始日期 (YYYY-MM-DD)", getattr(config, 'START_DATE', '2026-06-01'), 2, self.tabview.tab("爬蟲參數"))
         self.end_date_entry = self.create_input("結束日期 (YYYY-MM-DD)", getattr(config, 'END_DATE', '2026-07-01'), 3, self.tabview.tab("爬蟲參數"))
+
+        # 排程設定 (在爬蟲參數分頁新增)
+        self.interval_label = ctk.CTkLabel(self.tabview.tab("爬蟲參數"), text="自動監控頻率 (分鐘，建議 >= 10):", anchor="w")
+        self.interval_label.grid(row=7, column=0, padx=20, pady=(5, 0), sticky="w")
+        self.interval_entry = ctk.CTkEntry(self.tabview.tab("爬蟲參數"))
+        self.interval_entry.insert(0, "15")
+        self.interval_entry.grid(row=8, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         # 保存按鈕
         self.save_btn = ctk.CTkButton(self.sidebar_frame, text="儲存設定", command=self.save_settings)
@@ -88,8 +98,15 @@ class App(ctk.CTk):
         self.run_btn = ctk.CTkButton(self.button_frame, text="開始執行單次抓取", command=self.start_scrape_thread, fg_color="green", hover_color="#006400")
         self.run_btn.pack(side="left", padx=10)
         
+        self.schedule_btn = ctk.CTkButton(self.button_frame, text="啟動自動監控", command=self.toggle_schedule, fg_color="#1f538d")
+        self.schedule_btn.pack(side="left", padx=10)
+        
         self.stop_btn = ctk.CTkButton(self.button_frame, text="停止抓取", command=self.stop_scrape, fg_color="red", hover_color="#8B0000", state="disabled")
         self.stop_btn.pack(side="left", padx=10)
+
+        # 倒數計時顯示
+        self.timer_label = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=12))
+        self.timer_label.grid(row=5, column=1, padx=20, pady=(0, 10), sticky="e")
 
     def create_input(self, label_text, default_value, row, master=None):
         if master is None: master = self.sidebar_frame
@@ -191,6 +208,55 @@ class App(ctk.CTk):
             f.write(self.creds_textbox.get("1.0", "end-1c"))
         
         self.add_log("設定已同步至本地檔案。")
+
+    def toggle_schedule(self):
+        if not self.is_scheduled:
+            # 啟動排程
+            try:
+                interval = int(self.interval_entry.get())
+                if interval < 1: interval = 1 # 防呆
+            except:
+                self.add_log("❌ 錯誤：頻率必須是數字")
+                return
+
+            self.is_scheduled = True
+            self.schedule_btn.configure(text="關閉自動監控", fg_color="#A9A9A9")
+            self.add_log(f"✅ 已啟動自動監控，每 {interval} 分鐘執行一次。")
+            self.run_scheduled_task()
+        else:
+            # 關閉排程
+            self.is_scheduled = False
+            self.schedule_btn.configure(text="啟動自動監控", fg_color="#1f538d")
+            self.timer_label.configure(text="")
+            if self.timer_job:
+                self.after_cancel(self.timer_job)
+            self.add_log("停止自動監控。")
+
+    def run_scheduled_task(self):
+        if not self.is_scheduled:
+            return
+            
+        # 執行抓取 (複用現有線程邏輯)
+        self.start_scrape_thread()
+        
+        # 設定下次執行時間
+        interval_mins = int(self.interval_entry.get())
+        import time
+        self.next_run_time = time.time() + (interval_mins * 60)
+        self.update_timer()
+
+    def update_timer(self):
+        if not self.is_scheduled or self.next_run_time is None:
+            return
+            
+        import time
+        remaining = int(self.next_run_time - time.time())
+        if remaining <= 0:
+            self.run_scheduled_task()
+        else:
+            mins, secs = divmod(remaining, 60)
+            self.timer_label.configure(text=f"下次自動執行倒數: {mins:02d}:{secs:02d}")
+            self.timer_job = self.after(1000, self.update_timer)
 
     def start_scrape_thread(self):
         self.stop_requested = False
