@@ -32,16 +32,19 @@ class App(ctk.CTk):
         self.line_token_entry = self.create_input("LINE Token", getattr(config, 'LINE_CHANNEL_ACCESS_TOKEN', ''), 1)
         self.line_uid_entry = self.create_input("LINE UserID", getattr(config, 'LINE_USER_ID', ''), 2)
         
-        # 目標價格
-        self.target_price_entry = self.create_input("目標價格", str(getattr(config, 'TARGET_PRICE', 4000)), 3)
+        # Email 設定
+        self.gmail_user_entry = self.create_input("Gmail 帳號", getattr(config, 'GMAIL_USER', ''), 3)
+        self.gmail_pass_entry = self.create_input("Gmail 應用程式密碼", getattr(config, 'GMAIL_PASSWORD', ''), 4)
+        self.to_email_entry = self.create_input("接收通知 Email", getattr(config, 'TO_EMAIL', ''), 5)
 
-        # 日期設定
-        self.start_date_entry = self.create_input("開始日期 (YYYY-MM-DD)", getattr(config, 'START_DATE', '2026-06-01'), 4)
-        self.end_date_entry = self.create_input("結束日期 (YYYY-MM-DD)", getattr(config, 'END_DATE', '2026-07-01'), 5)
+        # 爬蟲參數
+        self.target_price_entry = self.create_input("目標價格", str(getattr(config, 'TARGET_PRICE', 4000)), 6)
+        self.start_date_entry = self.create_input("開始日期 (YYYY-MM-DD)", getattr(config, 'START_DATE', '2026-06-01'), 7)
+        self.end_date_entry = self.create_input("結束日期 (YYYY-MM-DD)", getattr(config, 'END_DATE', '2026-07-01'), 8)
 
-        # 保存按鈕 (調整 row 到 12 避免重疊，並增加 pady)
+        # 保存按鈕 (再往下移至 row 18)
         self.save_btn = ctk.CTkButton(self.sidebar_frame, text="儲存設定", command=self.save_settings)
-        self.save_btn.grid(row=12, column=0, padx=20, pady=30)
+        self.save_btn.grid(row=18, column=0, padx=20, pady=20)
 
         # === 右側主視窗 ===
         # 1. 憑證編輯區
@@ -89,6 +92,9 @@ class App(ctk.CTk):
         with open("config.py", "w", encoding="utf-8") as f:
             f.write(f"LINE_CHANNEL_ACCESS_TOKEN = '{self.line_token_entry.get()}'\n")
             f.write(f"LINE_USER_ID = '{self.line_uid_entry.get()}'\n")
+            f.write(f"GMAIL_USER = '{self.gmail_user_entry.get()}'\n")
+            f.write(f"GMAIL_PASSWORD = '{self.gmail_pass_entry.get()}'\n")
+            f.write(f"TO_EMAIL = '{self.to_email_entry.get()}'\n")
             f.write(f"TARGET_PRICE = {self.target_price_entry.get()}\n")
             f.write(f"START_DATE = '{self.start_date_entry.get()}'\n")
             f.write(f"END_DATE = '{self.end_date_entry.get()}'\n")
