@@ -12,12 +12,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-14
-            target: macos-arm
-            artifact_name: ezTravel-Scraper-mac-arm
-          - os: macos-13 # Intel Mac
+          - os: macos-13
             target: macos-intel
             artifact_name: ezTravel-Scraper-mac-intel
+          - os: macos-14 # Apple Silicon (ARM)
+            target: macos-arm
+            artifact_name: ezTravel-Scraper-mac-arm
           - os: windows-latest
             target: windows-x64
             artifact_name: ezTravel-Scraper-windows-x64.exe
