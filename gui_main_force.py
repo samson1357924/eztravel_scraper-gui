@@ -47,8 +47,14 @@ class App(ctk.CTk):
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="易遊網機票爬蟲", font=self.title_font)
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
 
-        # 建立分頁視窗來分類設定
+        # 建立分頁視窗來分類設定 (強制指定分頁標籤字體)
         self.tabview = ctk.CTkTabview(self.sidebar_frame, width=250)
+        # CustomTkinter 官方目前不支援直接在 add 時設定字體，我們需透過 _segmented_button 進行底層注入
+        try:
+            self.tabview._segmented_button.configure(font=self.label_font)
+        except:
+            pass
+            
         self.tabview.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
         self.tabview.add("LINE 設定")
         self.tabview.add("Email 設定")
