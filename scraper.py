@@ -50,35 +50,41 @@ def send_notifications(found_flights):
         message_body += f"日期: {flight['date']}\n價格: {flight['price']}\n連結: {flight['link']}\n\n"
 
     # 1. Send LINE Notification (v3)
-    try:
-        with ApiClient(configuration) as api_client:
-            line_bot_api = MessagingApi(api_client)
-            text_message = TextMessage(text=message_body)
-            push_message_request = PushMessageRequest(
-                to=config.LINE_USER_ID,
-                messages=[text_message]
-            )
-            line_bot_api.push_message(push_message_request)
-            print("LINE notification sent successfully.")
-    except Exception as e:
-        print(f"Failed to send LINE notification: {e}")
+    if getattr(config, 'LINE_ENABLE', True):
+        try:
+            with ApiClient(configuration) as api_client:
+                line_bot_api = MessagingApi(api_client)
+                text_message = TextMessage(text=message_body)
+                push_message_request = PushMessageRequest(
+                    to=config.LINE_USER_ID,
+                    messages=[text_message]
+                )
+                line_bot_api.push_message(push_message_request)
+                print("LINE notification sent successfully.")
+        except Exception as e:
+            print(f"Failed to send LINE notification: {e}")
+    else:
+        print("LINE 通知已停用，跳過發送。")
 
     # 2. Send Email Notification
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = config.GMAIL_USER
-        msg['To'] = config.TO_EMAIL
-        msg['Subject'] = "【便宜機票通知】易遊網爬蟲結果"
-        msg.attach(MIMEText(message_body, 'plain'))
+    if getattr(config, 'EMAIL_ENABLE', True):
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = config.GMAIL_USER
+            msg['To'] = config.TO_EMAIL
+            msg['Subject'] = "【便宜機票通知】易遊網爬蟲結果"
+            msg.attach(MIMEText(message_body, 'plain'))
 
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(config.GMAIL_USER, config.GMAIL_PASSWORD)
-        server.send_message(msg)
-        server.quit()
-        print("Email notification sent successfully.")
-    except Exception as e:
-        print(f"Failed to send Email notification: {e}")
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(config.GMAIL_USER, config.GMAIL_PASSWORD)
+            server.send_message(msg)
+            server.quit()
+            print("Email notification sent successfully.")
+        except Exception as e:
+            print(f"Failed to send Email notification: {e}")
+    else:
+        print("Email 通知已停用，跳過發送。")
 
 def run_scraper(start_date_str, end_date_str, trip_type="機票爬蟲任務", log_callback=None):
     def log(message):

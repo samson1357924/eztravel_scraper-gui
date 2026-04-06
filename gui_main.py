@@ -44,10 +44,18 @@ class App(ctk.CTk):
         self.tabview.add("爬蟲參數")
 
         # LINE 分頁
+        self.line_enable_var = ctk.BooleanVar(value=getattr(config, 'LINE_ENABLE', True))
+        self.line_enable_switch = ctk.CTkSwitch(self.tabview.tab("LINE 設定"), text="啟用 LINE 通知", variable=self.line_enable_var)
+        self.line_enable_switch.grid(row=0, column=0, padx=20, pady=(10, 5), sticky="w")
+        
         self.line_token_entry = self.create_input("LINE 通道存取權杖 (Token)", getattr(config, 'LINE_CHANNEL_ACCESS_TOKEN', ''), 1, self.tabview.tab("LINE 設定"))
         self.line_uid_entry = self.create_input("LINE 使用者 ID (UserID)", getattr(config, 'LINE_USER_ID', ''), 2, self.tabview.tab("LINE 設定"))
         
         # Email 分頁
+        self.email_enable_var = ctk.BooleanVar(value=getattr(config, 'EMAIL_ENABLE', True))
+        self.email_enable_switch = ctk.CTkSwitch(self.tabview.tab("Email 設定"), text="啟用 Email 通知", variable=self.email_enable_var)
+        self.email_enable_switch.grid(row=0, column=0, padx=20, pady=(10, 5), sticky="w")
+        
         self.gmail_user_entry = self.create_input("Gmail 帳號", getattr(config, 'GMAIL_USER', ''), 1, self.tabview.tab("Email 設定"))
         self.gmail_pass_entry = self.create_input("Gmail 應用程式密碼", getattr(config, 'GMAIL_PASSWORD', ''), 2, self.tabview.tab("Email 設定"))
         self.to_email_entry = self.create_input("接收通知 Email", getattr(config, 'TO_EMAIL', ''), 3, self.tabview.tab("Email 設定"))
@@ -139,6 +147,11 @@ class App(ctk.CTk):
                         settings[key] = val
             
             # 填入對應欄位
+            if "LINE_ENABLE" in settings:
+                self.line_enable_var.set(settings["LINE_ENABLE"] == "True")
+            if "EMAIL_ENABLE" in settings:
+                self.email_enable_var.set(settings["EMAIL_ENABLE"] == "True")
+            
             if "LINE_CHANNEL_ACCESS_TOKEN" in settings:
                 self.line_token_entry.delete(0, "end")
                 self.line_token_entry.insert(0, settings["LINE_CHANNEL_ACCESS_TOKEN"])
@@ -181,11 +194,13 @@ class App(ctk.CTk):
         selected_tab = self.tabview.get()
         
         if selected_tab == "LINE 設定":
+            current_config["LINE_ENABLE"] = str(self.line_enable_var.get())
             current_config["LINE_CHANNEL_ACCESS_TOKEN"] = f"'{self.line_token_entry.get()}'"
             current_config["LINE_USER_ID"] = f"'{self.line_uid_entry.get()}'"
             self.add_log("已更新 LINE 設定。")
             
         elif selected_tab == "Email 設定":
+            current_config["EMAIL_ENABLE"] = str(self.email_enable_var.get())
             current_config["GMAIL_USER"] = f"'{self.gmail_user_entry.get()}'"
             current_config["GMAIL_PASSWORD"] = f"'{self.gmail_pass_entry.get()}'"
             current_config["TO_EMAIL"] = f"'{self.to_email_entry.get()}'"
