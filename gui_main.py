@@ -54,6 +54,9 @@ class App(ctk.CTk):
         self.save_btn = ctk.CTkButton(self.sidebar_frame, text="儲存設定", command=self.save_settings)
         self.save_btn.grid(row=3, column=0, padx=20, pady=20)
 
+        # 啟動時讀取 config.py 並填入內容 (確保獲取最新實體檔案內容)
+        self.load_settings_from_file()
+
         # === 右側主視窗 ===
         # 1. 憑證編輯區
         self.creds_label = ctk.CTkLabel(self, text="瀏覽器憑證 (請貼入 credentials.py 的程式碼內容):", font=ctk.CTkFont(size=14, weight="bold"))
@@ -95,6 +98,50 @@ class App(ctk.CTk):
         self.log_textbox.insert("end", f"[{datetime.now().strftime('%H:%M:%S')}] {text}\n")
         self.log_textbox.see("end")
         self.log_textbox.configure(state="disabled")
+
+    def load_settings_from_file(self):
+        """從 config.py 實體檔案讀取內容並填入 Entry 欄位"""
+        if not os.path.exists("config.py"):
+            return
+            
+        try:
+            settings = {}
+            with open("config.py", "r", encoding="utf-8") as f:
+                for line in f:
+                    if "=" in line:
+                        key, val = line.split("=", 1)
+                        key = key.strip()
+                        val = val.strip().strip("'").strip('"')
+                        settings[key] = val
+            
+            # 填入對應欄位
+            if "LINE_CHANNEL_ACCESS_TOKEN" in settings:
+                self.line_token_entry.delete(0, "end")
+                self.line_token_entry.insert(0, settings["LINE_CHANNEL_ACCESS_TOKEN"])
+            if "LINE_USER_ID" in settings:
+                self.line_uid_entry.delete(0, "end")
+                self.line_uid_entry.insert(0, settings["LINE_USER_ID"])
+            if "GMAIL_USER" in settings:
+                self.gmail_user_entry.delete(0, "end")
+                self.gmail_user_entry.insert(0, settings["GMAIL_USER"])
+            if "GMAIL_PASSWORD" in settings:
+                self.gmail_pass_entry.delete(0, "end")
+                self.gmail_pass_entry.insert(0, settings["GMAIL_PASSWORD"])
+            if "TO_EMAIL" in settings:
+                self.to_email_entry.delete(0, "end")
+                self.to_email_entry.insert(0, settings["TO_EMAIL"])
+            if "TARGET_PRICE" in settings:
+                self.target_price_entry.delete(0, "end")
+                self.target_price_entry.insert(0, settings["TARGET_PRICE"])
+            if "START_DATE" in settings:
+                self.start_date_entry.delete(0, "end")
+                self.start_date_entry.insert(0, settings["START_DATE"])
+            if "END_DATE" in settings:
+                self.end_date_entry.delete(0, "end")
+                self.end_date_entry.insert(0, settings["END_DATE"])
+                
+        except Exception as e:
+            self.add_log(f"讀取設定檔失敗: {e}")
 
     def save_settings(self):
         # 讀取現有的 config.py 內容
