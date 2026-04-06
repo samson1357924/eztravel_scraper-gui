@@ -97,22 +97,46 @@ class App(ctk.CTk):
         self.log_textbox.configure(state="disabled")
 
     def save_settings(self):
-        # 更新 config.py
-        with open("config.py", "w", encoding="utf-8") as f:
-            f.write(f"LINE_CHANNEL_ACCESS_TOKEN = '{self.line_token_entry.get()}'\n")
-            f.write(f"LINE_USER_ID = '{self.line_uid_entry.get()}'\n")
-            f.write(f"GMAIL_USER = '{self.gmail_user_entry.get()}'\n")
-            f.write(f"GMAIL_PASSWORD = '{self.gmail_pass_entry.get()}'\n")
-            f.write(f"TO_EMAIL = '{self.to_email_entry.get()}'\n")
-            f.write(f"TARGET_PRICE = {self.target_price_entry.get()}\n")
-            f.write(f"START_DATE = '{self.start_date_entry.get()}'\n")
-            f.write(f"END_DATE = '{self.end_date_entry.get()}'\n")
+        # 讀取現有的 config.py 內容
+        current_config = {}
+        if os.path.exists("config.py"):
+            with open("config.py", "r", encoding="utf-8") as f:
+                for line in f:
+                    if "=" in line:
+                        key, val = line.split("=", 1)
+                        current_config[key.strip()] = val.strip()
+
+        # 根據目前選中的分頁，僅更新該分頁對應的欄位
+        selected_tab = self.tabview.get()
         
-        # 更新 credentials.py
+        if selected_tab == "LINE 設定":
+            current_config["LINE_CHANNEL_ACCESS_TOKEN"] = f"'{self.line_token_entry.get()}'"
+            current_config["LINE_USER_ID"] = f"'{self.line_uid_entry.get()}'"
+            self.add_log("已更新 LINE 設定。")
+            
+        elif selected_tab == "Email 設定":
+            current_config["GMAIL_USER"] = f"'{self.gmail_user_entry.get()}'"
+            current_config["GMAIL_PASSWORD"] = f"'{self.gmail_pass_entry.get()}'"
+            current_config["TO_EMAIL"] = f"'{self.to_email_entry.get()}'"
+            self.add_log("已更新 Email 設定。")
+            
+        elif selected_tab == "爬蟲參數":
+            current_config["TARGET_PRICE"] = self.target_price_entry.get()
+            current_config["START_DATE"] = f"'{self.start_date_entry.get()}'"
+            current_config["END_DATE"] = f"'{self.end_date_entry.get()}'"
+            self.add_log("已更新 爬蟲參數。")
+
+        # 寫回 config.py
+        with open("config.py", "w", encoding="utf-8") as f:
+            for key, val in current_config.items():
+                f.write(f"{key} = {val}\n")
+        
+        # 只有在「右側」憑證編輯區有變動時才更新 credentials.py (這裡維持手動儲存邏輯)
+        # 或者如果你希望儲存按鈕也同步儲存憑證區：
         with open("credentials.py", "w", encoding="utf-8") as f:
             f.write(self.creds_textbox.get("1.0", "end-1c"))
         
-        self.add_log("設定已儲存至本地檔案。")
+        self.add_log("設定已同步至本地檔案。")
 
     def start_scrape_thread(self):
         self.run_btn.configure(state="disabled", text="正在抓取...")
