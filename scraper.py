@@ -371,7 +371,7 @@ def record_to_excel(results, start_date_str, end_date_str, log=print):
     log(f"數據已記錄至 Excel: {filename}")
 
 
-def query_one_resource(date_obj, resource_type, ids, log):
+def query_one_resource(date_obj, resource_type, ids, log=print):
     """查詢單一 resourceType；回傳 (ok, min_price, error_message, prices)。"""
     client_id, transaction_id = ids
     payload = {
