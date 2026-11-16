@@ -49,8 +49,6 @@ venv/
 *.xlsx.bak-*
 # 文件用的範例試算表可提交
 !docs/**/*.xlsx
-# record_to_excel 備份檔（如 flight_prices.xlsx.bak-20261117-015809）
-*.xlsx.bak-*
 
 # === 作業系統雜項 ===
 .DS_Store

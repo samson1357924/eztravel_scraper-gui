@@ -2,7 +2,7 @@
 import sys
 import os
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 
 try:
     import math
@@ -33,7 +33,7 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("易遊網機票爬蟲-gui (Excel 支援版)")
+        self.title("易遊網機票爬蟲-gui V1.3.0")
         self.geometry("1000x800") # 增加預設高度至 800
         
         # 設定全域字體物件
@@ -70,6 +70,7 @@ class App(ctk.CTk):
 
         self.tabview.add("LINE 設定")
         self.tabview.add("Email 設定")
+        self.tabview.add("Telegram 設定")
         self.tabview.add("Excel 記錄")
 
         # --- LINE 分頁 ---
@@ -77,7 +78,7 @@ class App(ctk.CTk):
         self.line_enable_switch = ctk.CTkSwitch(self.tabview.tab("LINE 設定"), text="啟用 LINE 通知", 
                                                 variable=self.line_enable_var, command=self.quick_save_line_enable, font=self.label_font)
         self.line_enable_switch.grid(row=0, column=0, padx=20, pady=(10, 5), sticky="w")
-        self.line_token_entry = self.create_input("LINE Token", getattr(config, 'LINE_CHANNEL_ACCESS_TOKEN', ''), 1, self.tabview.tab("LINE 設定"))
+        self.line_token_entry = self.create_input("LINE Token", getattr(config, 'LINE_CHANNEL_ACCESS_TOKEN', ''), 1, self.tabview.tab("LINE 設定"), show="•")
         self.line_uid_entry = self.create_input("LINE UserID", getattr(config, 'LINE_USER_ID', ''), 2, self.tabview.tab("LINE 設定"))
         
         # --- Email 分頁 ---
@@ -88,8 +89,16 @@ class App(ctk.CTk):
         
         # 增加 Email 欄位的 pady 間距，並確保第三個欄位有足夠空間
         self.gmail_user_entry = self.create_input("Gmail 帳號", getattr(config, 'GMAIL_USER', ''), 1, self.tabview.tab("Email 設定"))
-        self.gmail_pass_entry = self.create_input("Gmail 密碼", getattr(config, 'GMAIL_PASSWORD', ''), 2, self.tabview.tab("Email 設定"))
+        self.gmail_pass_entry = self.create_input("Gmail 密碼", getattr(config, 'GMAIL_PASSWORD', ''), 2, self.tabview.tab("Email 設定"), show="•")
         self.to_email_entry = self.create_input("接收通知 Email", getattr(config, 'TO_EMAIL', ''), 3, self.tabview.tab("Email 設定"))
+
+        # --- Telegram 分頁 ---
+        self.telegram_enable_var = ctk.BooleanVar(value=getattr(config, 'TELEGRAM_ENABLE', True))
+        self.telegram_enable_switch = ctk.CTkSwitch(self.tabview.tab("Telegram 設定"), text="啟用 Telegram 通知",
+                                                    variable=self.telegram_enable_var, command=self.quick_save_telegram_enable, font=self.label_font)
+        self.telegram_enable_switch.grid(row=0, column=0, padx=20, pady=(10, 5), sticky="w")
+        self.telegram_token_entry = self.create_input("Bot Token", getattr(config, 'TELEGRAM_BOT_TOKEN', ''), 1, self.tabview.tab("Telegram 設定"), show="•")
+        self.telegram_chat_id_entry = self.create_input("Chat ID", getattr(config, 'TELEGRAM_CHAT_ID', ''), 2, self.tabview.tab("Telegram 設定"))
 
         # --- Excel 記錄 分頁 ---
         self.excel_enable_var = ctk.BooleanVar(value=getattr(config, 'EXCEL_ENABLE', False))
@@ -104,8 +113,8 @@ class App(ctk.CTk):
         self.params_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="nsew")
         
         self.target_price_entry = self.create_input("目標價格 (台幣)", str(getattr(config, 'TARGET_PRICE', 4000)), 1, self.params_frame)
-        self.start_date_entry = self.create_input("開始日期", getattr(config, 'START_DATE', '2026-06-01'), 2, self.params_frame)
-        self.end_date_entry = self.create_input("結束日期", getattr(config, 'END_DATE', '2026-07-01'), 3, self.params_frame)
+        self.start_date_entry = self.create_input("開始日期", getattr(config, 'START_DATE', datetime.now().strftime('%Y-%m-%d')), 2, self.params_frame)
+        self.end_date_entry = self.create_input("結束日期", getattr(config, 'END_DATE', (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')), 3, self.params_frame)
         
         self.interval_label = ctk.CTkLabel(self.params_frame, text="監控頻率 (分)", anchor="w", font=self.label_font)
         self.interval_label.grid(row=7, column=0, padx=20, pady=(5, 0), sticky="w")
@@ -136,10 +145,13 @@ class App(ctk.CTk):
 
         self.load_settings_from_file()
 
-    def create_input(self, label_text, default_value, row, master):
+    def create_input(self, label_text, default_value, row, master, show=None):
         label = ctk.CTkLabel(master, text=label_text, anchor="w", font=self.label_font)
         label.grid(row=row*2-1, column=0, padx=20, pady=(5, 0), sticky="w")
-        entry = ctk.CTkEntry(master)
+        if show is not None:
+            entry = ctk.CTkEntry(master, show=show)
+        else:
+            entry = ctk.CTkEntry(master)
         entry.insert(0, str(default_value))
         entry.grid(row=row*2, column=0, padx=20, pady=(0, 10), sticky="ew")
         return entry
@@ -152,17 +164,36 @@ class App(ctk.CTk):
 
     def quick_save_line_enable(self): self.update_single_config("LINE_ENABLE", str(self.line_enable_var.get()))
     def quick_save_email_enable(self): self.update_single_config("EMAIL_ENABLE", str(self.email_enable_var.get()))
+    def quick_save_telegram_enable(self): self.update_single_config("TELEGRAM_ENABLE", str(self.telegram_enable_var.get()))
     def quick_save_excel_enable(self): self.update_single_config("EXCEL_ENABLE", str(self.excel_enable_var.get()))
 
+    @staticmethod
+    def _write_config_preserving(values, path="config.py"):
+        """重寫 config.py：保留既有註解、空行與未知鍵，僅更新或新增 values 中的鍵。"""
+        lines = []
+        written = set()
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                for raw in f:
+                    stripped = raw.strip()
+                    if not stripped or stripped.startswith("#") or "=" not in raw:
+                        lines.append(raw if raw.endswith("\n") else raw + "\n")
+                        continue
+                    k, _ = raw.split("=", 1)
+                    key = k.strip()
+                    if key in values:
+                        lines.append(f"{key} = {values[key]}\n")
+                        written.add(key)
+                    else:
+                        lines.append(raw if raw.endswith("\n") else raw + "\n")
+        for key, val in values.items():
+            if key not in written:
+                lines.append(f"{key} = {val}\n")
+        with open(path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+
     def update_single_config(self, key, val):
-        c = {}
-        if os.path.exists("config.py"):
-            with open("config.py", "r", encoding="utf-8") as f:
-                for line in f:
-                    if "=" in line: k, v = line.split("=", 1); c[k.strip()] = v.strip()
-        c[key] = val
-        with open("config.py", "w", encoding="utf-8") as f:
-            for k, v in c.items(): f.write(f"{k} = {v}\n")
+        self._write_config_preserving({key: val})
         import importlib
         try:
             importlib.reload(config)
@@ -178,26 +209,26 @@ class App(ctk.CTk):
                     if "=" in line: k, v = line.split("=", 1); s[k.strip()] = v.strip().strip("'").strip('"')
             if "LINE_ENABLE" in s: self.line_enable_var.set(s["LINE_ENABLE"] == "True")
             if "EMAIL_ENABLE" in s: self.email_enable_var.set(s["EMAIL_ENABLE"] == "True")
+            if "TELEGRAM_ENABLE" in s: self.telegram_enable_var.set(s["TELEGRAM_ENABLE"] == "True")
             if "EXCEL_ENABLE" in s: self.excel_enable_var.set(s["EXCEL_ENABLE"] == "True")
             if "LINE_CHANNEL_ACCESS_TOKEN" in s: self.line_token_entry.delete(0, "end"); self.line_token_entry.insert(0, s["LINE_CHANNEL_ACCESS_TOKEN"])
             if "LINE_USER_ID" in s: self.line_uid_entry.delete(0, "end"); self.line_uid_entry.insert(0, s["LINE_USER_ID"])
             if "GMAIL_USER" in s: self.gmail_user_entry.delete(0, "end"); self.gmail_user_entry.insert(0, s["GMAIL_USER"])
             if "GMAIL_PASSWORD" in s: self.gmail_pass_entry.delete(0, "end"); self.gmail_pass_entry.insert(0, s["GMAIL_PASSWORD"])
             if "TO_EMAIL" in s: self.to_email_entry.delete(0, "end"); self.to_email_entry.insert(0, s["TO_EMAIL"])
+            if "TELEGRAM_BOT_TOKEN" in s: self.telegram_token_entry.delete(0, "end"); self.telegram_token_entry.insert(0, s["TELEGRAM_BOT_TOKEN"])
+            if "TELEGRAM_CHAT_ID" in s: self.telegram_chat_id_entry.delete(0, "end"); self.telegram_chat_id_entry.insert(0, s["TELEGRAM_CHAT_ID"])
             if "EXCEL_FILENAME" in s: self.excel_filename_entry.delete(0, "end"); self.excel_filename_entry.insert(0, s["EXCEL_FILENAME"])
             if "EXCEL_TOP_N" in s: self.excel_top_n_entry.delete(0, "end"); self.excel_top_n_entry.insert(0, s["EXCEL_TOP_N"])
             if "INTERVAL_MINS" in s: self.interval_entry.delete(0, "end"); self.interval_entry.insert(0, s["INTERVAL_MINS"])
             if "TARGET_PRICE" in s: self.target_price_entry.delete(0, "end"); self.target_price_entry.insert(0, s["TARGET_PRICE"])
             if "START_DATE" in s: self.start_date_entry.delete(0, "end"); self.start_date_entry.insert(0, s["START_DATE"])
             if "END_DATE" in s: self.end_date_entry.delete(0, "end"); self.end_date_entry.insert(0, s["END_DATE"])
-        except: pass
+        except Exception as e:
+            self.add_log(f"⚠️ 讀取 config.py 失敗：{e}")
 
     def save_settings(self):
         c = {}
-        if os.path.exists("config.py"):
-            with open("config.py", "r", encoding="utf-8") as f:
-                for line in f:
-                    if "=" in line: k, v = line.split("=", 1); c[k.strip()] = v.strip()
         
         # 儲存底部的「爬蟲參數」
         try:
@@ -219,16 +250,20 @@ class App(ctk.CTk):
             self.add_log("⚠️ INTERVAL_MINS 格式錯誤，已改用預設值 60")
             c["INTERVAL_MINS"] = "60"
 
-        # 儲存所有分頁的設定 (LINE, Email, Excel)
+        # 儲存所有分頁的設定 (LINE, Email, Telegram, Excel)
         c["LINE_ENABLE"] = str(self.line_enable_var.get())
-        c["LINE_CHANNEL_ACCESS_TOKEN"] = f"'{self.line_token_entry.get()}'"
-        c["LINE_USER_ID"] = f"'{self.line_uid_entry.get()}'"
-        
+        c["LINE_CHANNEL_ACCESS_TOKEN"] = f"'{self.line_token_entry.get().strip()}'"
+        c["LINE_USER_ID"] = f"'{self.line_uid_entry.get().strip()}'"
+
         c["EMAIL_ENABLE"] = str(self.email_enable_var.get())
-        c["GMAIL_USER"] = f"'{self.gmail_user_entry.get()}'"
-        c["GMAIL_PASSWORD"] = f"'{self.gmail_pass_entry.get()}'"
-        c["TO_EMAIL"] = f"'{self.to_email_entry.get()}'"
-        
+        c["GMAIL_USER"] = f"'{self.gmail_user_entry.get().strip()}'"
+        c["GMAIL_PASSWORD"] = f"'{self.gmail_pass_entry.get().strip()}'"
+        c["TO_EMAIL"] = f"'{self.to_email_entry.get().strip()}'"
+
+        c["TELEGRAM_ENABLE"] = str(self.telegram_enable_var.get())
+        c["TELEGRAM_BOT_TOKEN"] = f"'{self.telegram_token_entry.get().strip()}'"
+        c["TELEGRAM_CHAT_ID"] = f"'{self.telegram_chat_id_entry.get().strip()}'"
+
         c["EXCEL_ENABLE"] = str(self.excel_enable_var.get())
         c["EXCEL_FILENAME"] = f"'{self.excel_filename_entry.get()}'"
         try:
@@ -240,8 +275,7 @@ class App(ctk.CTk):
             self.add_log("⚠️ EXCEL_TOP_N 格式錯誤，已改用預設值 3")
             c["EXCEL_TOP_N"] = "3"
 
-        with open("config.py", "w", encoding="utf-8") as f:
-            for k, v in c.items(): f.write(f"{k} = {v}\n")
+        self._write_config_preserving(c)
             
         import importlib
         try:

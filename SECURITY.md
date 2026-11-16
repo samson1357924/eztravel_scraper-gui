@@ -17,6 +17,7 @@
 
 - 上述所有外洩憑證**皆已由擁有者輪換 / 作廢**，舊憑證不再有效。
 - 已將 `config.py`、`credentials.py`、`__pycache__/` 自 git 追蹤中移除，並加入 `.gitignore`。
+- **credentials.py 流程已廢棄**：ezTravel 公開 API 不再需要任何 cookies，`credentials.py` 不應再建立或使用。
 - 本機工作目錄中的 `config.py` 與 `credentials.py` 仍然保留，僅不再被 git 追蹤。
 - 新增 pre-commit 與 CI 檢查，防止同類事件再次發生。
 - 注意：上述檔案仍可能存在於**舊的 git 歷史與既有的 clone / fork** 中，輪換憑證是唯一可靠的補救手段。
