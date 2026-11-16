@@ -1,0 +1,56 @@
+# 安全性檢查：防止機敏檔案入庫與憑證外洩
+name: Security
+
+'on':
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tracked-files:
+    name: 檢查 git 追蹤清單不含機敏檔案
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 檢查追蹤的檔案
+        run: |
+          set -euo pipefail
+          # 不允許入庫：__pycache__/、.py[cod] 編譯檔、config.py、credentials.py、.env 與 .env.*
+          # 注意：本檢查只擋「機敏檔名」，不驗證檔案內容；範本檔已不含 credentials.py.template
+          # （該流程已廢棄），機敏內容的掃描由 gitleaks 負責
+          BAD=$(git ls-files \
+            | grep -iE '(^|/)__pycache__/|\.py[cod]$|(^|/)config\.py$|(^|/)config\.py\.(bak|tmp)$|(^|/)credentials\.py$|(^|/)\.env($|\.)|(^|/)\.envrc$|\.(pem|key|p12)$|(^|/)secrets\.[^/]*$' \
+            | grep -vE '(^|/)(\.env\.(example|sample|template))$' \
+            || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::下列機敏檔案不得入庫，請自 git 追蹤中移除並輪換相關憑證："
+            echo "$BAD"
+            exit 1
+          fi
+          echo "OK：git 追蹤清單中未發現機敏檔案"
+
+  gitleaks:
+    name: gitleaks 歷史掃描
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 完整歷史掃描需要完整的 git 歷史
+          fetch-depth: 0
+
+      - name: 下載 gitleaks v8.18.4
+        run: |
+          set -euo pipefail
+          curl -sSfL -o gitleaks.tar.gz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz
+          echo "ba6dbb656933921c775ee5a2d1c13a91046e7952e9d919f9bac4cec61d628e7d  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+
+      # 注意：gitleaks 預設規則無法識別所有憑證格式（本 repo 曾外洩的 .pyc 即未命中），
+      # 此步驟為防禦縱深，綠燈不代表歷史乾淨；真正的防線是 tracked-files 檢查 + 憑證輪換 + .gitignore。
+      - name: 掃描 git 歷史中的機敏資料
+        run: ./gitleaks detect --source . --redact --verbose --exit-code 1
