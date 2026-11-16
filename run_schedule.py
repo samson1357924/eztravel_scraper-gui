@@ -211,6 +211,7 @@ def run_script(script_name, job_name):
             text=True,
             encoding='utf-8',
             timeout=600,
+            cwd=SCRIPT_DIR,  # 錨定到本檔所在目錄，避免 cwd 不同導致 scraper 讀到錯誤的 config.py / 寫到錯誤目錄
         )
 
         finish_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')

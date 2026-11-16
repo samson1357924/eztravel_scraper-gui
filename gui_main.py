@@ -5,12 +5,15 @@ import shutil
 import threading
 from datetime import datetime, timedelta
 
+# config.py 的絕對路徑：所有 config 讀寫都錨定到本檔所在目錄，避免 cwd 不同導致讀到/寫到錯誤的 config.py
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.py")
+
 # 首次啟動：config.py 不存在時，自動從 config.py.template 複製一份（exe 直接內嵌 template）
-if not os.path.exists("config.py"):
-    _template = os.path.join(getattr(sys, "_MEIPASS", "."), "config.py.template")
+if not os.path.exists(CONFIG_PATH):
+    _template = os.path.join(getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__))), "config.py.template")
     if os.path.isfile(_template):
         try:
-            shutil.copyfile(_template, "config.py")
+            shutil.copyfile(_template, CONFIG_PATH)
         except OSError:
             pass
 
@@ -26,6 +29,17 @@ def _strip_inline_comment(line):
         elif ch == '#':
             return line[:i]
     return line
+
+def parse_config_text(text):
+    """解析 config.py 內容，回傳 {key: value}（值已 strip 引號與行尾註解）。"""
+    s = {}
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#") or "=" not in raw:
+            continue
+        k, v = _strip_inline_comment(raw).split("=", 1)
+        s[k.strip()] = v.strip().strip("'").strip('"')
+    return s
 
 try:
     import math
@@ -192,40 +206,57 @@ class App(ctk.CTk):
 
     @staticmethod
     def _quote(v):
-        """把字串寫成 config.py 的合法字面量，避免引號衝突導致 config 語法錯誤。"""
-        if "'" in v and '"' not in v:
-            return f'"{v}"'
-        if "'" in v and '"' in v:
-            return repr(v)
-        return f"'{v}'"
+        """把字串寫成 config.py 的合法字面量：直接 repr(v)，確保產生的檔案可被 ast.literal_eval / import 解析。"""
+        return repr(v)
 
     @staticmethod
-    def _write_config_preserving(values, path="config.py"):
-        """重寫 config.py：保留既有註解、空行與未知鍵，僅更新或新增 values 中的鍵。"""
+    def _write_config_preserving(values, path=CONFIG_PATH, on_error=None):
+        """重寫 config.py：保留既有註解、空行與未知鍵，僅更新或新增 values 中的鍵。
+
+        被更新的鍵，其行尾註解會被替換（其餘行的註解完整保留）。
+        寫檔為原子操作：先寫 path+'.tmp' 再 os.replace；覆蓋前若原檔存在會先留一份 path+'.bak'。
+        讀檔採 utf-8-sig 以相容 BOM 開頭的 config.py。失敗時經 on_error 回報（或印出），絕不拋例外。
+        """
         lines = []
         written = set()
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                for raw in f:
-                    stripped = raw.strip()
-                    if not stripped or stripped.startswith("#") or "=" not in raw:
-                        lines.append(raw if raw.endswith("\n") else raw + "\n")
-                        continue
-                    k, _ = raw.split("=", 1)
-                    key = k.strip()
-                    if key in values:
-                        lines.append(f"{key} = {values[key]}\n")
-                        written.add(key)
-                    else:
-                        lines.append(raw if raw.endswith("\n") else raw + "\n")
-        for key, val in values.items():
-            if key not in written:
-                lines.append(f"{key} = {val}\n")
-        with open(path, "w", encoding="utf-8") as f:
-            f.writelines(lines)
+        try:
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8-sig") as f:
+                    for raw in f:
+                        stripped = raw.strip()
+                        if not stripped or stripped.startswith("#") or "=" not in raw:
+                            lines.append(raw if raw.endswith("\n") else raw + "\n")
+                            continue
+                        k, _ = raw.split("=", 1)
+                        key = k.strip()
+                        if key in values:
+                            lines.append(f"{key} = {values[key]}\n")
+                            written.add(key)
+                        else:
+                            lines.append(raw if raw.endswith("\n") else raw + "\n")
+            for key, val in values.items():
+                if key not in written:
+                    lines.append(f"{key} = {val}\n")
+            tmp_path = path + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                os.chmod(tmp_path, 0o600)
+                f.writelines(lines)
+            if os.path.exists(path):
+                # 覆蓋前先備份原檔，避免寫到一半出錯時失去舊設定
+                shutil.copyfile(path, path + ".bak")
+                os.chmod(path + ".bak", 0o600)
+            os.replace(tmp_path, path)
+            return True
+        except OSError as e:
+            if on_error:
+                on_error(e)
+            else:
+                print(f"寫入 config.py 失敗：{e}")
+            return False
 
     def update_single_config(self, key, val):
-        self._write_config_preserving({key: val})
+        if not self._write_config_preserving({key: val}, on_error=lambda e: self.add_log(f"❌ 寫入 config.py 失敗：{e}")):
+            return
         import importlib
         try:
             importlib.reload(config)
@@ -233,14 +264,10 @@ class App(ctk.CTk):
             self.add_log(f"❌ 設定檔重新載入失敗：{e}")
 
     def load_settings_from_file(self):
-        if not os.path.exists("config.py"): return
+        if not os.path.exists(CONFIG_PATH): return
         try:
-            s = {}
-            with open("config.py", "r", encoding="utf-8") as f:
-                for raw in f:
-                    if "=" in raw:
-                        k, v = _strip_inline_comment(raw).split("=", 1)
-                        s[k.strip()] = v.strip().strip("'").strip('"')
+            with open(CONFIG_PATH, "r", encoding="utf-8-sig") as f:
+                s = parse_config_text(f.read())
             if "LINE_ENABLE" in s: self.line_enable_var.set(s["LINE_ENABLE"] == "True")
             if "EMAIL_ENABLE" in s: self.email_enable_var.set(s["EMAIL_ENABLE"] == "True")
             if "TELEGRAM_ENABLE" in s: self.telegram_enable_var.set(s["TELEGRAM_ENABLE"] == "True")
@@ -262,8 +289,24 @@ class App(ctk.CTk):
             self.add_log(f"⚠️ 讀取 config.py 失敗：{e}")
 
     def save_settings(self):
+        # 先驗證 START_DATE / END_DATE：任一檢查失敗即取消儲存，config.py 完全不動
+        start_str = self.start_date_entry.get().strip()
+        end_str = self.end_date_entry.get().strip()
+        try:
+            start_date = datetime.strptime(start_str, '%Y-%m-%d')
+            end_date = datetime.strptime(end_str, '%Y-%m-%d')
+        except ValueError:
+            self.add_log("開始/結束日期格式錯誤，已取消儲存")
+            return
+        if end_date < start_date:
+            self.add_log("結束日期不得早於開始日期，已取消儲存")
+            return
+        if end_date.date() < datetime.now().date():
+            self.add_log("結束日期不得早於今天，已取消儲存")
+            return
+
         c = {}
-        
+
         # 儲存底部的「爬蟲參數」
         try:
             _v = float(self.target_price_entry.get())
@@ -273,8 +316,8 @@ class App(ctk.CTk):
         except ValueError:
             self.add_log("⚠️ TARGET_PRICE 格式錯誤，已改用預設值 4000")
             c["TARGET_PRICE"] = "4000"
-        c["START_DATE"] = f"'{self.start_date_entry.get()}'"
-        c["END_DATE"] = f"'{self.end_date_entry.get()}'"
+        c["START_DATE"] = self._quote(start_str)
+        c["END_DATE"] = self._quote(end_str)
         try:
             _iv = int(self.interval_entry.get())
             if _iv < 1:
@@ -299,7 +342,7 @@ class App(ctk.CTk):
         c["TELEGRAM_CHAT_ID"] = self._quote(self.telegram_chat_id_entry.get().strip())
 
         c["EXCEL_ENABLE"] = str(self.excel_enable_var.get())
-        c["EXCEL_FILENAME"] = f"'{self.excel_filename_entry.get()}'"
+        c["EXCEL_FILENAME"] = self._quote(self.excel_filename_entry.get())
         try:
             _v = float(self.excel_top_n_entry.get())
             if not (math.isfinite(_v) and _v > 0):
@@ -309,38 +352,51 @@ class App(ctk.CTk):
             self.add_log("⚠️ EXCEL_TOP_N 格式錯誤，已改用預設值 3")
             c["EXCEL_TOP_N"] = "3"
 
-        self._write_config_preserving(c)
-            
+        if not self._write_config_preserving(c, on_error=lambda e: self.add_log(f"❌ 寫入 config.py 失敗：{e}")):
+            return
+
         import importlib
         try:
             importlib.reload(config)
         except Exception as e:
             self.add_log(f"❌ 設定檔重新載入失敗：{e}")
+            return
         self.add_log("✅ 所有設定已成功儲存。")
+
+    def _reset_schedule(self):
+        """把排程相關狀態重置為未啟動（還原按鈕、清空倒數、取消排程 timer）。"""
+        self.is_scheduled = False
+        self.schedule_btn.configure(text="啟動自動監控", fg_color="#1f538d")
+        self.timer_label.configure(text="")
+        if self.timer_job: self.after_cancel(self.timer_job)
 
     def toggle_schedule(self):
         if not self.is_scheduled:
             try: interval = int(self.interval_entry.get())
-            except: self.add_log("❌ 頻率錯誤"); return
+            except (TypeError, ValueError): self.add_log("❌ 頻率錯誤"); return
+            if interval < 1:
+                self.add_log("❌ 頻率必須 ≥ 1 分鐘")
+                self._reset_schedule()
+                return
             self.is_scheduled = True
             self.schedule_btn.configure(text="關閉自動監控", fg_color="#A9A9A9")
             self.run_scheduled_task()
         else:
-            self.is_scheduled = False
-            self.schedule_btn.configure(text="啟動自動監控", fg_color="#1f538d")
-            self.timer_label.configure(text="")
-            if self.timer_job: self.after_cancel(self.timer_job)
+            self._reset_schedule()
 
     def run_scheduled_task(self):
         if not self.is_scheduled: return
         try:
             interval_mins = int(self.interval_entry.get())
         except (TypeError, ValueError):
+            interval_mins = None
+        if interval_mins is None:
             self.add_log("❌ 頻率錯誤")
-            self.is_scheduled = False
-            self.schedule_btn.configure(text="啟動自動監控", fg_color="#1f538d")
-            self.timer_label.configure(text="")
-            if self.timer_job: self.after_cancel(self.timer_job)
+            self._reset_schedule()
+            return
+        if interval_mins < 1:
+            self.add_log("❌ 頻率必須 ≥ 1 分鐘")
+            self._reset_schedule()
             return
         self.start_scrape_thread()
         self.next_run_time = datetime.now().timestamp() + (interval_mins * 60)
@@ -355,6 +411,10 @@ class App(ctk.CTk):
             self.timer_job = self.after(1000, self.update_timer)
 
     def start_scrape_thread(self):
+        # 上一次抓取尚未完成時略過本次排程，避免堆疊出多個抓取 thread
+        if self.scrape_thread and self.scrape_thread.is_alive():
+            self.add_log("⏳ 上一次抓取尚未完成，略過本次排程")
+            return
         self.stop_requested = False
         self.run_btn.configure(state="disabled"); self.stop_btn.configure(state="normal")
         self.scrape_thread = threading.Thread(target=self.run_scrape, daemon=True)

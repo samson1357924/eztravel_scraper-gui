@@ -61,8 +61,11 @@ def fake_resp(body, status=200):
 
 def with_mocked_post(body, status=200):
     """暫時把 scraper.requests.post 換成回傳固定 body 的假函式。"""
+    import atexit
     real = scraper.requests.post
     scraper.requests.post = lambda *a, **k: fake_resp(body, status)
+    # 測試中途 assert 失敗時也能在程式結束時還原，避免污染後續測試
+    atexit.register(restore_post, real)
     return real
 
 
@@ -147,7 +150,7 @@ def test_run_scraper_dedups_notifications():
     state_tmp = os.path.join(tempfile.mkdtemp(prefix='test_scraper_state_'), 'state.json')
     if os.path.exists(state_tmp):
         os.remove(state_tmp)
-    scraper.send_notification_text = lambda text: sends.append(text)
+    scraper.send_notification_text = lambda text, log=None: sends.append(text) or 1
     scraper.STATE_FILE = state_tmp
     try:
         # gui 版 run_scraper 以 (date, resource_type, ids, log) 呼叫，mock 須接收 log
@@ -159,6 +162,34 @@ def test_run_scraper_dedups_notifications():
         scraper.query_one_resource = lambda date, rt, ids, log=None: (True, 3000.0, None, [3000.0])
         scraper.run_scraper(FUTURE, FUTURE)
         assert len(sends) == 2  # 價格再跌：再發一次
+    finally:
+        scraper.send_notification_text = real_send
+        scraper.query_one_resource = real_query
+        scraper.STATE_FILE = real_state
+        if os.path.exists(state_tmp):
+            os.remove(state_tmp)
+
+
+def test_notification_failure_not_marked_notified():
+    """所有通知管道都失敗（send 回 0）時，不得標記已通知；下次執行必須再次提醒。"""
+    sends = []
+    real_send = scraper.send_notification_text
+    real_query = scraper.query_one_resource
+    real_state = scraper.STATE_FILE
+    state_tmp = os.path.join(tempfile.mkdtemp(prefix='test_scraper_state_'), 'state.json')
+    if os.path.exists(state_tmp):
+        os.remove(state_tmp)
+    scraper.send_notification_text = lambda text, log=None: sends.append(text) or 0
+    scraper.STATE_FILE = state_tmp
+    try:
+        scraper.query_one_resource = lambda date, rt, ids, log=None: (True, 3000.0, None, [3000.0])
+        scraper.run_scraper(FUTURE, FUTURE)
+        scraper.run_scraper(FUTURE, FUTURE)
+        assert len(sends) == 2  # 未標記已通知：兩次執行都嘗試發送
+        # state 檔（若存在）不得含 notified 鍵
+        if os.path.exists(state_tmp):
+            with open(state_tmp, encoding='utf-8') as f:
+                assert 'notified' not in json.load(f)
     finally:
         scraper.send_notification_text = real_send
         scraper.query_one_resource = real_query

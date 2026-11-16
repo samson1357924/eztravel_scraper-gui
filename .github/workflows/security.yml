@@ -23,7 +23,7 @@ jobs:
           # 注意：本檢查只擋「機敏檔名」，不驗證檔案內容；範本檔已不含 credentials.py.template
           # （該流程已廢棄），機敏內容的掃描由 gitleaks 負責
           BAD=$(git ls-files \
-            | grep -iE '(^|/)__pycache__/|\.py[cod]$|(^|/)config\.py$|(^|/)credentials\.py$|(^|/)\.env($|\.)|(^|/)\.envrc$|\.(pem|key|p12)$|(^|/)secrets\.[^/]*$' \
+            | grep -iE '(^|/)__pycache__/|\.py[cod]$|(^|/)config\.py$|(^|/)config\.py\.(bak|tmp)$|(^|/)credentials\.py$|(^|/)\.env($|\.)|(^|/)\.envrc$|\.(pem|key|p12)$|(^|/)secrets\.[^/]*$' \
             | grep -vE '(^|/)(\.env\.(example|sample|template))$' \
             || true)
           if [ -n "$BAD" ]; then

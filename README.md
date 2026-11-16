@@ -121,9 +121,10 @@ eztravel_scraper-gui/
 ├── run_schedule.py                  # headless 排程器（失敗通知、log 輪替）
 ├── config.py.template               # 設定範本（config.py 不入庫）
 ├── requirements.txt                 # 依賴套件
-├── tests/                           # 離線單元測試（15 tests，不連網）
+├── tests/                           # 離線單元測試（23 tests，不連網）
 │   ├── test_scraper.py             # API 封包/價格解析/去重/sanitize
-│   └── test_record_to_excel.py     # Excel 表頭唯一/去重/corrupt 備份/失敗不阻斷通知
+│   ├── test_record_to_excel.py     # Excel 表頭唯一/去重/corrupt 備份/失敗不阻斷通知
+│   └── test_config_parse.py        # config 讀寫/註解保留/寫檔失敗
 ├── SECURITY.md                      # 安全性政策
 ├── .github/workflows/security.yml   # CI 防洩密檢查
 ├── .pre-commit-config.yaml          # pre-commit：gitleaks + 禁止機敏檔案入庫
@@ -139,7 +140,7 @@ eztravel_scraper-gui/
 - **全通知管道去重與失敗告警**：去重通知（新日期或價格再跌才通知）；所有查詢失敗時發出告警。
 - **防洩密護欄**：新增 pre-commit（gitleaks + 禁止機敏檔案）、CI 檢查。
 - **文件全面更新**：README 改寫（Telegram 設定教學、開發者章節、V1.3.0）。
-- **測試**：新增 `tests/` 離線單元測試（15 個測試，不連網）。
+- **測試**：新增 `tests/` 離線單元測試（23 個測試，不連網）。
 
 ### [V1.2.0] - 2026-04-07
 - **Excel 整合**：新增「Excel 記錄」分頁，支援自動追蹤每日票價變動。

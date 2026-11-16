@@ -1,6 +1,9 @@
 # === 機密設定檔（絕對不可入庫）===
 # 本機實際設定，含 LINE / Gmail token 等敏感資訊
 config.py
+# config.py 存檔時的備份與暫存（內容為機密，嚴禁入庫）
+config.py.bak
+config.py.tmp
 # 本機實際網站 cookies 與 headers，含 Incapsula 等憑證
 credentials.py
 # 環境變數檔（.env 及其衍生檔，例如 .env.local）

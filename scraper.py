@@ -2,6 +2,7 @@ import sys
 import re
 import os
 import json
+import math
 import random
 import string
 import time
@@ -38,6 +39,8 @@ try:
     config.TARGET_PRICE = float(config.TARGET_PRICE)
 except (TypeError, ValueError):
     raise ValueError(f"config.py 格式錯誤: TARGET_PRICE 必須是數字（收到 {config.TARGET_PRICE!r}）")
+if not (math.isfinite(config.TARGET_PRICE) and config.TARGET_PRICE > 0):
+    raise ValueError(f"config.py 格式錯誤: TARGET_PRICE 必須是正的有限數字（收到 {config.TARGET_PRICE!r}）")
 
 # === ezTravel API 設定 ===
 API_URL = 'https://flight.eztravel.com.tw/apiv2/flight/list'
@@ -55,9 +58,12 @@ FROM_CITY = (getattr(config, 'FROM_CITY', 'SPK') or 'SPK').upper()
 TO_CITY = (getattr(config, 'TO_CITY', 'TPE') or 'TPE').upper()
 # 每個請求之間的禮貌性間隔（秒），避免連續轟炸 ezTravel
 try:
-    REQUEST_DELAY = max(0.0, float(getattr(config, 'REQUEST_DELAY_SECONDS', 0.7)))
+    _delay = float(getattr(config, 'REQUEST_DELAY_SECONDS', 0.7))
+    if not math.isfinite(_delay) or _delay < 0:
+        raise ValueError(_delay)
+    REQUEST_DELAY = _delay
 except (TypeError, ValueError):
-    print("警告：REQUEST_DELAY_SECONDS 必須是非負數字，改用預設 0.7 秒")
+    print("警告：REQUEST_DELAY_SECONDS 必須是非負有限數字（isfinite），改用預設 0.7 秒")
     REQUEST_DELAY = 0.7
 
 
@@ -68,18 +74,18 @@ FAILURE_ALERT_COOLDOWN_SECONDS = 6 * 3600  # 全部查詢失敗時的告警冷�
 MAX_FLIGHTS_PER_MESSAGE = 20               # 單則通知最多列出的筆數，避免超過 LINE/Telegram 長度上限
 
 
-def load_state():
+def load_state(log=print):
     try:
         with open(STATE_FILE, 'r', encoding='utf-8') as f:
             state = json.load(f)
         return state if isinstance(state, dict) else {}
     except Exception as e:
         if os.path.exists(STATE_FILE):
-            print(f"警告：狀態檔 {STATE_FILE} 讀取失敗（{e.__class__.__name__}），去重狀態已重置")
+            log(f"警告：狀態檔 {STATE_FILE} 讀取失敗（{e.__class__.__name__}），去重狀態已重置")
         return {}
 
 
-def save_state(state):
+def save_state(state, log=print):
     try:
         # 讀取現有狀態後合併再寫回，保留未知鍵以前向相容
         try:
@@ -96,7 +102,7 @@ def save_state(state):
             json.dump(merged, f, ensure_ascii=False, indent=1)
         os.replace(tmp_path, STATE_FILE)
     except Exception as e:
-        print(f"警告：無法寫入狀態檔 {STATE_FILE}: {e}")
+        log(f"警告：無法寫入狀態檔 {STATE_FILE}: {e}")
 
 
 def safe_float(value, default=0.0):
@@ -147,39 +153,62 @@ def _sanitize_impl(s, config):
 
 
 def generate_ids():
-    """產生與前端相同格式的 clientID / transactionID（每次執行隨機）。"""
+    """產生與前端相同格式的 clientID / transactionID（每次執行隨機）。
+
+    注意：同一天的多個 resourceType 共用同一組 transactionID 是刻意模仿前端行為
+    （前端一次搜尋會同時帶兩種 resourceType，且共用同一個 transactionID）；
+    每組日期才重新產生，避免被當作重複交易去重。
+    """
     client_id = '0317' + ''.join(random.choices(string.digits, k=16))
     transaction_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=16))
     return client_id, transaction_id
 
 
 def parse_price(value):
-    """價格容錯解析：數字直接轉 float，字串去除非數字字元後轉 float。無法解析則回傳 None。"""
+    """價格容錯解析：數字直接轉 float（須為有限值）；字串先試 float(s)，失敗才 regex 去除非數字字元後轉 float。
+
+    全路徑皆檢查 math.isfinite；bool / None / dict 直接回傳 None。無法解析則回傳 None。
+    """
     if value is None:
         return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    cleaned = re.sub(r'[^\d.]', '', str(value))
-    try:
-        return float(cleaned) if cleaned else None
-    except ValueError:
+    if isinstance(value, bool):  # bool 是 int 的子類別，True/False 不是合法價格
         return None
+    if isinstance(value, dict):
+        return None
+    if isinstance(value, (int, float)):
+        f = float(value)
+        return f if math.isfinite(f) else None
+    s = str(value)
+    try:
+        f = float(s)  # 先試直接轉換（可處理 '4518.0'、'1e3'、前後空白等）
+    except ValueError:
+        cleaned = re.sub(r'[^\d.]', '', s)
+        if not cleaned:
+            return None
+        try:
+            f = float(cleaned)
+        except ValueError:
+            return None
+    return f if math.isfinite(f) else None
 
 
-def send_notification_text(text):
+def send_notification_text(text, log=print):
     """將純文字訊息送出到所有已啟用且已設定的通知管道（LINE / Email / Telegram）。
 
     各管道獨立 try/except，單一管道失敗不影響其他管道。
+    回傳成功送出的管道數（LINE / Email / Telegram 各 +1）；未設定、停用或發送失敗皆不計入。
     """
+    sent = 0
+
     # 1. Send LINE Notification (Messaging API v3)
     if not getattr(config, 'LINE_ENABLE', True):
-        print("LINE 通知已停用，跳過發送。")
+        log("LINE 通知已停用，跳過發送。")
     else:
         line_token = getattr(config, 'LINE_CHANNEL_ACCESS_TOKEN', '') or ''
         line_user_id = getattr(config, 'LINE_USER_ID', '') or ''
         try:
             if not line_token or not line_user_id or line_token.startswith('YOUR_') or line_user_id.startswith('YOUR_'):
-                print("LINE 通知未設定（LINE_CHANNEL_ACCESS_TOKEN / LINE_USER_ID 缺一或未修改），略過。")
+                log("LINE 通知未設定（LINE_CHANNEL_ACCESS_TOKEN / LINE_USER_ID 缺一或未修改），略過。")
             else:
                 configuration = Configuration(access_token=line_token)
                 with ApiClient(configuration) as api_client:
@@ -190,22 +219,23 @@ def send_notification_text(text):
                         messages=[text_message]
                     )
                     line_bot_api.push_message(push_message_request)
-                    print("LINE notification sent successfully.")
+                    log("LINE notification sent successfully.")
+                    sent += 1
         except Exception as e:
-            print(f"Failed to send LINE notification: {e.__class__.__name__}: {sanitize(e)}")
+            log(f"Failed to send LINE notification: {e.__class__.__name__}: {sanitize(e)}")
 
     # 2. Send Email Notification
     if not getattr(config, 'EMAIL_ENABLE', True):
-        print("Email 通知已停用，跳過發送。")
+        log("Email 通知已停用，跳過發送。")
     else:
         gmail_password = getattr(config, 'GMAIL_PASSWORD', '') or ''
         try:
             gmail_user = getattr(config, 'GMAIL_USER', '') or ''
             to_email = getattr(config, 'TO_EMAIL', '') or ''
             if not gmail_user or not gmail_password or gmail_user.startswith('YOUR_') or gmail_password.startswith('YOUR_'):
-                print("Email 通知未設定（GMAIL_USER / GMAIL_PASSWORD 缺一或未修改），略過。")
+                log("Email 通知未設定（GMAIL_USER / GMAIL_PASSWORD 缺一或未修改），略過。")
             elif not to_email or to_email.startswith('RECEIVER_'):
-                print("Email 通知未設定（TO_EMAIL 缺或未修改），略過。")
+                log("Email 通知未設定（TO_EMAIL 缺或未修改），略過。")
             else:
                 msg = MIMEMultipart()
                 msg['From'] = gmail_user
@@ -218,17 +248,21 @@ def send_notification_text(text):
                     server.starttls(context=context)
                     server.login(gmail_user, gmail_password)
                     server.send_message(msg)
-                print("Email notification sent successfully.")
+                log("Email notification sent successfully.")
+                sent += 1
         except Exception as e:
-            print(f"Failed to send Email notification: {e.__class__.__name__}: {sanitize(e)}")
+            log(f"Failed to send Email notification: {e.__class__.__name__}: {sanitize(e)}")
 
     # 3. Send Telegram Notification（選配：同時設定 TELEGRAM_BOT_TOKEN 與 TELEGRAM_CHAT_ID 才啟用）
     if not getattr(config, 'TELEGRAM_ENABLE', True):
-        print("Telegram 通知已停用，跳過發送。")
+        log("Telegram 通知已停用，跳過發送。")
     else:
         telegram_token = getattr(config, 'TELEGRAM_BOT_TOKEN', '') or ''
         telegram_chat_id = getattr(config, 'TELEGRAM_CHAT_ID', '') or ''
-        if telegram_token and telegram_chat_id:
+        # TELEGRAM_BOT_TOKEN 以 YOUR_ 開頭視為未設定（比照 LINE/Email 的 YOUR_ 慣例）
+        token_ok = bool(telegram_token) and not telegram_token.startswith('YOUR_')
+        chat_ok = bool(telegram_chat_id)
+        if token_ok and chat_ok:
             try:
                 tg_text = text
                 if len(tg_text) > 4000:  # Telegram 上限 4096 字，保留餘裕
@@ -247,14 +281,19 @@ def send_notification_text(text):
                 except ValueError:
                     body = {}
                 if resp.status_code == 200 and body.get("ok"):
-                    print("Telegram notification sent successfully.")
+                    log("Telegram notification sent successfully.")
+                    sent += 1
                 else:
                     desc = sanitize(body.get("description", resp.text[:200]) if isinstance(body, dict) else resp.text[:200])
-                    print(f"Failed to send Telegram notification: HTTP {resp.status_code} {desc}")
+                    log(f"Failed to send Telegram notification: HTTP {resp.status_code} {desc}")
             except Exception as e:
-                print(f"Failed to send Telegram notification: {e.__class__.__name__}: {sanitize(e)}")
-        elif telegram_token or telegram_chat_id:
-            print("Telegram 通知未啟用：TELEGRAM_BOT_TOKEN 與 TELEGRAM_CHAT_ID 必須同時設定，已略過。")
+                log(f"Failed to send Telegram notification: {e.__class__.__name__}: {sanitize(e)}")
+        elif token_ok or chat_ok:
+            log("Telegram 通知未啟用：TELEGRAM_BOT_TOKEN 與 TELEGRAM_CHAT_ID 必須同時設定（且 TELEGRAM_BOT_TOKEN 不得以 YOUR_ 開頭），已略過。")
+        else:
+            log("Telegram 通知未設定（TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID 皆未填），略過。")
+
+    return sent
 
 
 def build_found_message(found_flights):
@@ -267,12 +306,15 @@ def build_found_message(found_flights):
             f"連結: {flight['link']}\n\n"
         )
     if len(found_flights) > MAX_FLIGHTS_PER_MESSAGE:
-        message_body += f"…其餘 {len(found_flights) - MAX_FLIGHTS_PER_MESSAGE} 筆已略，完整清單請看爬蟲 log。\n"
+        message_body += f"…其餘 {len(found_flights) - MAX_FLIGHTS_PER_MESSAGE} 筆已略（門檻 NT$ {config.TARGET_PRICE:,.0f}），完整清單請看爬蟲 log。\n"
     return message_body
 
 
 def record_to_excel(results, start_date_str, end_date_str, log=print):
-    """將爬蟲結果記錄到 Excel，格式參考用戶提供圖片"""
+    """將爬蟲結果記錄到 Excel，格式參考用戶提供圖片
+
+    巨集保留：副檔名為 .xlsm / .xltm 時以 keep_vba=True 載入，保存時 VBA 巨集會隨檔保留。
+    """
     if not getattr(config, 'EXCEL_ENABLE', False):
         return
 
@@ -309,11 +351,15 @@ def record_to_excel(results, start_date_str, end_date_str, log=print):
     # 載入或建立活頁簿
     if os.path.exists(filename):
         try:
-            wb = load_workbook(filename)
-            ws = wb.active
+            # .xlsm / .xltm 為巨集活頁簿，keep_vba=True 才保得住 VBA 巨集
+            wb = load_workbook(filename, keep_vba=filename.lower().endswith(('.xlsm', '.xltm')))
+        except PermissionError:
+            # Excel 被鎖定（可能已開啟中）：不嘗試備份/重建，直接略過，保留原檔
+            log("Excel 被鎖定（可能已開啟中），已略過 Excel 記錄")
+            return
         except (OSError, ValueError, KeyError, SyntaxError, zipfile.BadZipFile, InvalidFileException) as e:
             # 原檔可能損毀：先備份再重建，絕不覆蓋原檔（寧可不記，不毀歷史資料）
-            backup = f"{filename}.bak-{datetime.now():%Y%m%d-%H%M%S}"
+            backup = f"{filename}.bak-{datetime.now():%Y%m%d-%H%M%S-%f}"
             try:
                 os.replace(filename, backup)
             except OSError as be:
@@ -321,10 +367,14 @@ def record_to_excel(results, start_date_str, end_date_str, log=print):
                 return
             log(f"Excel 檔案損毀（{e.__class__.__name__}: {e}），已備份原檔至 {backup}，重新建立新 Excel")
             wb = Workbook()
-            ws = wb.active
     else:
         wb = Workbook()
-        ws = wb.active
+
+    ws = wb.active
+    if ws is None:
+        # 沒有可用工作表時若繼續寫入會破壞/無法保存原檔，直接略過較安全
+        log("Excel 沒有可用的工作表（wb.active 為 None），為避免覆蓋原檔，已略過 Excel 記錄")
+        return
 
     # 找出最後一個「Time」表頭列，並記錄最後一列是否為全空列
     # （用 iter_rows 讀取，避免在全新活頁簿上建立 cell 而產生前導空列）
@@ -412,6 +462,9 @@ def query_one_resource(date_obj, resource_type, ids, log=print):
     except requests.RequestException as e:
         return False, None, f"請求失敗: {e.__class__.__name__}: {sanitize(e)}", []
 
+    if response.status_code != 200:
+        return False, None, f"HTTP {response.status_code}，回應前 200 字: {sanitize(response.text[:200])}", []
+
     try:
         body = response.json()
     except ValueError:
@@ -426,7 +479,7 @@ def query_one_resource(date_obj, resource_type, ids, log=print):
     code = head.get('code')
     if code != 0:
         # 400405 = 參數無效（程式 bug，不應重試）；其他錯誤也一律回報
-        return False, None, f"HTTP {response.status_code}，head.code={code}，message={head.get('message', '')}", []
+        return False, None, f"HTTP {response.status_code}，head.code={code}，message={sanitize(head.get('message', ''))}", []
 
     data = body.get('data')
     if data is None:
@@ -504,18 +557,21 @@ def run_scraper(start_date_str, end_date_str, log_callback=None):
     success_days = 0
     fail_days = []
     ok_resource_calls = 0  # 成功的 resourceType 請求次數（HTTP ok 且 head.code==0）
+    req_idx = 0            # 已發出的請求數；除最後一次 HTTP 請求外都要 sleep，避免尾端浪費等待時間
+    total_requests = len(date_range) * len(RESOURCE_TYPES)
     link_base = f"https://flight.eztravel.com.tw/tickets-oneway-{FROM_CITY.lower()}-{TO_CITY.lower()}/"
 
-    for idx, date in enumerate(date_range):
+    for date in date_range:
         log(None)  # 心跳：傳入 None 讓 GUI 檢查停止旗標，log 內會略過輸出
-        is_last_day = idx == len(date_range) - 1
-        ids = generate_ids()  # transactionID/clientID 每次執行隨機，避免被當作重複交易去重
+        # 同一天的多個 resourceType 共用同一組 ids 是刻意模仿前端行為（見 generate_ids 註解）
+        ids = generate_ids()  # transactionID/clientID 每組日期隨機，避免被當作重複交易去重
         day_min = None
         day_errors = []
         day_any_ok = False
         day_link = f"{link_base}?outbounddate={date.strftime('%d%%2F%m%%2F%Y')}"  # 每日連結與 resourceType 無關，只算一次
         for resource_type in RESOURCE_TYPES:
             ok, min_price, error, prices = query_one_resource(date, resource_type, ids, log)
+            req_idx += 1
             if ok:
                 day_any_ok = True
                 ok_resource_calls += 1
@@ -529,7 +585,8 @@ def run_scraper(start_date_str, end_date_str, log_callback=None):
                     day_min = min_price if day_min is None else min(day_min, min_price)
             else:
                 day_errors.append(f"{resource_type}: {error}")
-            if not is_last_day:
+            # 除最後一次 HTTP 請求外都要 sleep（包含跨日期的間隔）
+            if req_idx < total_requests:
                 time.sleep(REQUEST_DELAY)
 
         if day_min is not None:
@@ -560,24 +617,30 @@ def run_scraper(start_date_str, end_date_str, log_callback=None):
     # 因此此處必須獨立 try/except，不得讓 Excel 失敗影響通知。
     if all_price_entries:
         try:
-            record_to_excel(all_price_entries, start_date_str, end_date_str, log)
+            # 傳入裁切後的 start_date（START_DATE 已自動裁切至今天時，Excel 範圍跟著裁切）
+            record_to_excel(all_price_entries, start_date.strftime('%Y-%m-%d'), end_date_str, log)
         except Exception as e:
             log(f"Excel 記錄失敗（{e.__class__.__name__}: {e}），已略過 Excel，繼續執行通知流程")
 
     summary_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    state = load_state()
+    state = load_state(log)
     if ok_resource_calls == 0 and date_range:
         log(f"[{summary_time}] 全部查詢失敗（{len(date_range) * len(RESOURCE_TYPES)} 次請求皆未成功），ezTravel API 可能已變更或網路異常")
         last_alert = safe_float(state.get('last_failure_alert', 0))
         if time.time() - last_alert > FAILURE_ALERT_COOLDOWN_SECONDS:
-            send_notification_text(
+            sent = send_notification_text(
                 f"機票爬蟲任務 - 全部查詢失敗！\n"
                 f"範圍: {date_range[0].strftime('%Y-%m-%d')} ~ {end_date_str}（{len(date_range)} 個日期）\n"
                 f"失敗範例: {'; '.join(fail_days[:3])}\n"
-                f"請檢查網路連線與 ezTravel API 是否變更。"
+                f"請檢查網路連線與 ezTravel API 是否變更。",
+                log=log,
             )
-            state['last_failure_alert'] = time.time()
-            save_state(state)
+            # 僅在至少一個管道成功送出時才記錄冷卻狀態並存檔；全敗則下次執行再告警
+            if sent >= 1:
+                state['last_failure_alert'] = time.time()
+                save_state(state, log)
+            else:
+                log("⚠️ 所有通知管道皆發送失敗，全敗告警未送出、也未寫入冷卻狀態，下次執行會再次嘗試發送")
         else:
             log("（全部查詢失敗告警在冷卻期內，略過本次通知）")
     elif found_cheap_flights:
@@ -593,11 +656,17 @@ def run_scraper(start_date_str, end_date_str, log_callback=None):
             if skipped:
                 msg += f"（其餘 {skipped} 筆價格未再下跌，已通知過，未重發）\n"
             log(f"[{summary_time}] Found {len(new_items)} new flights under budget!")
-            send_notification_text(msg)
+            sent = send_notification_text(msg, log=log)
             for f in new_items:
-                notified[f['date']] = f['price']
-            state['notified'] = notified
-            save_state(state)
+                log(f"  便宜機票：{f['date']} NT$ {f['price']:,.0f} - {f['link']}")
+            # 僅在至少一個管道成功送出時才標記已通知；全敗則下次執行重新提醒
+            if sent >= 1:
+                for f in new_items:
+                    notified[f['date']] = f['price']
+                state['notified'] = notified
+                save_state(state, log)
+            else:
+                log("⚠️ 所有通知管道皆發送失敗，便宜機票未標記為已通知，下次執行會再次提醒")
         else:
             log(f"[{summary_time}] 便宜機票與先前通知相同（價格未再下跌），略過重複通知。")
     else:

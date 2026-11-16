@@ -139,7 +139,7 @@ class RecordToExcelTest(unittest.TestCase):
             raise PermissionError(13, "Permission denied", "flight_prices.xlsx")
 
         self.patch(scraper, 'record_to_excel', boom)
-        self.patch(scraper, 'send_notification_text', lambda text: sent.append(text))
+        self.patch(scraper, 'send_notification_text', lambda text, log=None: sent.append(text) or 1)
         self.patch(scraper, 'query_one_resource',
                    lambda date, rt, ids, log=None: (True, 100.0, None, [100.0]))
         self.patch(scraper, 'STATE_FILE', os.path.join(self.tmpdir, 'state.json'))

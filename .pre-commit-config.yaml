@@ -15,4 +15,4 @@ repos:
         name: 禁止機敏檔案入庫（鏡像 CI tracked-files 檢查）
         language: system
         pass_filenames: false
-        entry: bash -c 'BAD=$(git ls-files | grep -iE "(^|/)__pycache__/|\.py[cod]$|(^|/)config\.py$|(^|/)credentials\.py$|(^|/)\.env($|\.|rc$)|\.(pem|key|p12)$|(^|/)secrets\.[^/]*$" | grep -vE "(^|/)(\.env\.(example|sample|template))$" || true); if [ -n "$BAD" ]; then echo "下列機敏檔案不得入庫：$BAD" >&2; exit 1; fi'
+        entry: bash -c 'BAD=$(git ls-files | grep -iE "(^|/)__pycache__/|\.py[cod]$|(^|/)config\.py$|(^|/)config\.py\.(bak|tmp)$|(^|/)credentials\.py$|(^|/)\.env($|\.|rc$)|\.(pem|key|p12)$|(^|/)secrets\.[^/]*$" | grep -vE "(^|/)(\.env\.(example|sample|template))$" || true); if [ -n "$BAD" ]; then echo "下列機敏檔案不得入庫：$BAD" >&2; exit 1; fi'
