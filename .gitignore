@@ -38,12 +38,19 @@ venv/
 # === 執行期狀態與輸出 ===
 # 爬蟲排程狀態檔
 .scraper_state.json
+.scraper_state.json.tmp
+# 排程器狀態檔
+.scheduler_state.json
 # 執行日誌
 *.log
 # 爬取結果試算表（可能含價格監控資料）
 *.xlsx
+# record_to_excel 備份檔（如 flight_prices.xlsx.bak-20261117-015809）
+*.xlsx.bak-*
 # 文件用的範例試算表可提交
 !docs/**/*.xlsx
+# record_to_excel 備份檔（如 flight_prices.xlsx.bak-20261117-015809）
+*.xlsx.bak-*
 
 # === 作業系統雜項 ===
 .DS_Store

@@ -20,7 +20,8 @@ jobs:
         run: |
           set -euo pipefail
           # 不允許入庫：__pycache__/、.py[cod] 編譯檔、config.py、credentials.py、.env 與 .env.*
-          # 注意：config.py.template、credentials.py.template、.env.example 為公開範本，允許入庫
+          # 注意：本檢查只擋「機敏檔名」，不驗證檔案內容；範本檔已不含 credentials.py.template
+          # （該流程已廢棄），機敏內容的掃描由 gitleaks 負責
           BAD=$(git ls-files \
             | grep -iE '(^|/)__pycache__/|\.py[cod]$|(^|/)config\.py$|(^|/)credentials\.py$|(^|/)\.env($|\.)|(^|/)\.envrc$|\.(pem|key|p12)$|(^|/)secrets\.[^/]*$' \
             | grep -vE '(^|/)(\.env\.(example|sample|template))$' \

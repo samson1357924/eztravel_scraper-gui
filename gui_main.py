@@ -1,11 +1,26 @@
 # -*- coding: utf-8 -*-
-import customtkinter as ctk
-import threading
 import sys
 import os
+import threading
 from datetime import datetime
-import scraper
-import config
+
+try:
+    import math
+    import customtkinter as ctk
+    import scraper
+    import config
+except Exception as e:
+    # --windowed 打包的 exe 沒有 console，import 失敗會變成無聲閃退；改以 messagebox 顯示錯誤
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+        _root = tk.Tk()
+        _root.withdraw()
+        messagebox.showerror("設定錯誤", f"無法載入程式所需的模組或設定：\n{e.__class__.__name__}: {e}")
+        _root.destroy()
+    except Exception:
+        pass
+    sys.exit(1)
 
 # 設定主題
 ctk.set_appearance_mode("Dark")
@@ -35,7 +50,7 @@ class App(ctk.CTk):
 
         # 網格配置
         self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
 
         # === 左側邊欄 ===
         self.sidebar_frame = ctk.CTkFrame(self, width=280, corner_radius=0)
@@ -81,7 +96,7 @@ class App(ctk.CTk):
         self.excel_enable_switch = ctk.CTkSwitch(self.tabview.tab("Excel 記錄"), text="啟用 Excel 記錄", 
                                                  variable=self.excel_enable_var, command=self.quick_save_excel_enable, font=self.label_font)
         self.excel_enable_switch.grid(row=0, column=0, padx=20, pady=(10, 5), sticky="w")
-        self.excel_filename_entry = self.create_input("Excel 檔名", getattr(config, 'EXCEL_FILENAME', 'prices.xlsx'), 1, self.tabview.tab("Excel 記錄"))
+        self.excel_filename_entry = self.create_input("Excel 檔名", getattr(config, 'EXCEL_FILENAME', 'flight_prices.xlsx'), 1, self.tabview.tab("Excel 記錄"))
         self.excel_top_n_entry = self.create_input("記錄前 N 低票價", str(getattr(config, 'EXCEL_TOP_N', 3)), 2, self.tabview.tab("Excel 記錄"))
 
         # --- 獨立的爬蟲參數方塊 (在 Tabview 下方) ---
@@ -95,25 +110,17 @@ class App(ctk.CTk):
         self.interval_label = ctk.CTkLabel(self.params_frame, text="監控頻率 (分)", anchor="w", font=self.label_font)
         self.interval_label.grid(row=7, column=0, padx=20, pady=(5, 0), sticky="w")
         self.interval_entry = ctk.CTkEntry(self.params_frame)
-        self.interval_entry.insert(0, str(getattr(config, 'INTERVAL_MINS', 15)))
+        self.interval_entry.insert(0, str(getattr(config, 'INTERVAL_MINS', 60)))
         self.interval_entry.grid(row=8, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         # === 右側主視窗 ===
-        self.creds_label = ctk.CTkLabel(self, text="瀏覽器憑證:", font=self.main_font)
-        self.creds_label.grid(row=0, column=1, padx=20, pady=(10, 0), sticky="w")
-        self.creds_textbox = ctk.CTkTextbox(self, height=300, font=ctk.CTkFont(family="Consolas", size=12))
-        self.creds_textbox.grid(row=1, column=1, padx=20, pady=10, sticky="nsew")
-        if os.path.exists("credentials.py"):
-            with open("credentials.py", "r", encoding="utf-8") as f:
-                self.creds_textbox.insert("0.0", f.read())
-
         self.log_label = ctk.CTkLabel(self, text="執行狀態:", font=self.main_font)
-        self.log_label.grid(row=2, column=1, padx=20, pady=(10, 0), sticky="w")
+        self.log_label.grid(row=0, column=1, padx=20, pady=(10, 0), sticky="w")
         self.log_textbox = ctk.CTkTextbox(self, height=250, state="disabled", font=self.label_font)
-        self.log_textbox.grid(row=3, column=1, padx=20, pady=10, sticky="nsew")
+        self.log_textbox.grid(row=1, column=1, padx=20, pady=10, sticky="nsew")
 
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.button_frame.grid(row=4, column=1, padx=20, pady=20, sticky="e")
+        self.button_frame.grid(row=2, column=1, padx=20, pady=20, sticky="e")
         
         self.save_btn = ctk.CTkButton(self.button_frame, text="儲存設定", command=self.save_settings, font=self.main_font, fg_color="orange", hover_color="#FF8C00")
         self.save_btn.pack(side="left", padx=10)
@@ -125,7 +132,7 @@ class App(ctk.CTk):
         self.stop_btn = ctk.CTkButton(self.button_frame, text="停止抓取", command=self.stop_scrape, fg_color="red", state="disabled", font=self.main_font)
         self.stop_btn.pack(side="left", padx=10)
         self.timer_label = ctk.CTkLabel(self, text="", font=self.label_font)
-        self.timer_label.grid(row=5, column=1, padx=20, pady=(0, 10), sticky="e")
+        self.timer_label.grid(row=3, column=1, padx=20, pady=(0, 10), sticky="e")
 
         self.load_settings_from_file()
 
@@ -156,7 +163,11 @@ class App(ctk.CTk):
         c[key] = val
         with open("config.py", "w", encoding="utf-8") as f:
             for k, v in c.items(): f.write(f"{k} = {v}\n")
-        import importlib; importlib.reload(config)
+        import importlib
+        try:
+            importlib.reload(config)
+        except Exception as e:
+            self.add_log(f"❌ 設定檔重新載入失敗：{e}")
 
     def load_settings_from_file(self):
         if not os.path.exists("config.py"): return
@@ -189,10 +200,24 @@ class App(ctk.CTk):
                     if "=" in line: k, v = line.split("=", 1); c[k.strip()] = v.strip()
         
         # 儲存底部的「爬蟲參數」
-        c["TARGET_PRICE"] = self.target_price_entry.get()
+        try:
+            _v = float(self.target_price_entry.get())
+            if not (math.isfinite(_v) and _v > 0):
+                raise ValueError
+            c["TARGET_PRICE"] = self.target_price_entry.get()
+        except ValueError:
+            self.add_log("⚠️ TARGET_PRICE 格式錯誤，已改用預設值 4000")
+            c["TARGET_PRICE"] = "4000"
         c["START_DATE"] = f"'{self.start_date_entry.get()}'"
         c["END_DATE"] = f"'{self.end_date_entry.get()}'"
-        c["INTERVAL_MINS"] = self.interval_entry.get()
+        try:
+            _iv = int(self.interval_entry.get())
+            if _iv < 1:
+                raise ValueError
+            c["INTERVAL_MINS"] = str(_iv)
+        except ValueError:
+            self.add_log("⚠️ INTERVAL_MINS 格式錯誤，已改用預設值 60")
+            c["INTERVAL_MINS"] = "60"
 
         # 儲存所有分頁的設定 (LINE, Email, Excel)
         c["LINE_ENABLE"] = str(self.line_enable_var.get())
@@ -206,18 +231,24 @@ class App(ctk.CTk):
         
         c["EXCEL_ENABLE"] = str(self.excel_enable_var.get())
         c["EXCEL_FILENAME"] = f"'{self.excel_filename_entry.get()}'"
-        c["EXCEL_TOP_N"] = self.excel_top_n_entry.get()
+        try:
+            _v = float(self.excel_top_n_entry.get())
+            if not (math.isfinite(_v) and _v > 0):
+                raise ValueError
+            c["EXCEL_TOP_N"] = self.excel_top_n_entry.get()
+        except ValueError:
+            self.add_log("⚠️ EXCEL_TOP_N 格式錯誤，已改用預設值 3")
+            c["EXCEL_TOP_N"] = "3"
 
         with open("config.py", "w", encoding="utf-8") as f:
             for k, v in c.items(): f.write(f"{k} = {v}\n")
             
-        # 儲存瀏覽器憑證
-        with open("credentials.py", "w", encoding="utf-8") as f:
-            f.write(self.creds_textbox.get("1.0", "end-1c"))
-            
         import importlib
-        importlib.reload(config)
-        self.add_log("✅ 所有設定與憑證已成功儲存。")
+        try:
+            importlib.reload(config)
+        except Exception as e:
+            self.add_log(f"❌ 設定檔重新載入失敗：{e}")
+        self.add_log("✅ 所有設定已成功儲存。")
 
     def toggle_schedule(self):
         if not self.is_scheduled:
@@ -234,8 +265,17 @@ class App(ctk.CTk):
 
     def run_scheduled_task(self):
         if not self.is_scheduled: return
+        try:
+            interval_mins = int(self.interval_entry.get())
+        except (TypeError, ValueError):
+            self.add_log("❌ 頻率錯誤")
+            self.is_scheduled = False
+            self.schedule_btn.configure(text="啟動自動監控", fg_color="#1f538d")
+            self.timer_label.configure(text="")
+            if self.timer_job: self.after_cancel(self.timer_job)
+            return
         self.start_scrape_thread()
-        self.next_run_time = datetime.now().timestamp() + (int(self.interval_entry.get()) * 60)
+        self.next_run_time = datetime.now().timestamp() + (interval_mins * 60)
         self.update_timer()
 
     def update_timer(self):
@@ -258,7 +298,13 @@ class App(ctk.CTk):
 
     def run_scrape(self):
         try:
-            import importlib; importlib.reload(config); importlib.reload(scraper)
+            import importlib
+            try:
+                importlib.reload(config)
+                importlib.reload(scraper)
+            except Exception as e:
+                self.add_log(f"❌ 設定檔重新載入失敗：{e}")
+                return
             def cb(msg):
                 if self.stop_requested: raise KeyboardInterrupt
                 if msg: self.add_log(msg)

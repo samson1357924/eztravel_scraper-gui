@@ -1,12 +1,36 @@
+# === 通知開關（True/False）===
+LINE_ENABLE = True
+EMAIL_ENABLE = True
+TELEGRAM_ENABLE = True
+TARGET_PRICE = 4000                             # 目標價格（TWD，含稅）
+START_DATE = '2026-12-01'                       # YYYY-MM-DD（過去日期會警告並裁切；END_DATE 過期則拒絕執行）
+END_DATE = '2026-12-31'                         # 注意：日期在過去 ezTravel 只會回空資料
+FROM_CITY = 'SPK'   # 出發城市 IATA 代碼（如 SPK 札幌、TYO 東京、KIX 大阪）
+TO_CITY = 'TPE'     # 目的城市 IATA 代碼
+INTERVAL_MINS = 60                              # GUI 自動監控頻率（分鐘）
+SCHEDULE_INTERVAL_MINUTES = 60                  # headless 排程器（run_schedule.py）頻率
+EXCEL_ENABLE = False                            # 啟用 Excel 記錄
+EXCEL_FILENAME = 'flight_prices.xlsx'
+EXCEL_TOP_N = 3
+
 # === Notification Settings ===
-LINE_CHANNEL_ACCESS_TOKEN = 'YOUR_LINE_TOKEN'
-LINE_USER_ID = 'YOUR_LINE_USER_ID'
+LINE_CHANNEL_ACCESS_TOKEN = 'YOUR_LINE_TOKEN'      # LINE Messaging API 長效 Channel Access Token（LINE Developers Console）
+LINE_USER_ID = 'YOUR_LINE_USER_ID'                 # LINE User ID（U 開頭 + 32 碼 hex；bot 需先加為好友）
 
-GMAIL_USER = 'YOUR_EMAIL@gmail.com'
-GMAIL_PASSWORD = 'YOUR_GMAIL_APP_PASSWORD'
+GMAIL_USER = 'YOUR_EMAIL@gmail.com'                # Gmail 帳號（需先開啟兩步驟驗證）
+GMAIL_PASSWORD = 'YOUR_GMAIL_APP_PASSWORD'         # Gmail「應用程式密碼」，不是帳號密碼（Google 帳號 > 安全性 > 應用程式密碼）
 TO_EMAIL = 'RECEIVER_EMAIL@gmail.com'
-TARGET_PRICE = 4000
 
-# === Scraper Range ===
-START_DATE = '2026-06-01'
-END_DATE = '2026-07-01'
+# === Telegram Settings（選配，留空即停用；兩者必須同時設定才會啟用）===
+# 申請步驟：Telegram 搜尋 @BotFather → /newbot 建立 bot 取得 token
+#           私聊 bot 按 /start → 開瀏覽器 https://api.telegram.org/bot<TOKEN>/getUpdates 取得 chat id
+TELEGRAM_BOT_TOKEN = ''    # 例：'8123456789:AAHxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+TELEGRAM_CHAT_ID = ''      # 私聊：'123456789'；群組/超級群組：'-1001234567890'
+
+# === 排程設定 ===
+# 注意：日期範圍上限 62 天，超過會拒絕執行（需 EZTRAVEL_ALLOW_LONG_RANGE=1 放行）
+#（SCHEDULE_INTERVAL_MINUTES 也可以往下調，但頻率越高越容易觸發 ezTravel 限流，風險自負）
+
+# === 進階（通常不用動）===
+# RESOURCE_TYPES = ['Ct', 'EzTravel']   # 查詢的訂票來源；預設兩種都查取全域最低價，只打一種會漏價
+# REQUEST_DELAY_SECONDS = 0.7           # 每個 API 請求之間的間隔（秒），避免觸發 ezTravel 風控

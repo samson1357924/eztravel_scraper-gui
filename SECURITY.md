@@ -28,19 +28,19 @@
 以下檔案一律不得提交至 git（已列入 `.gitignore`）：
 
 - `config.py` — 本機 LINE / Gmail 等實際設定
-- `credentials.py` — 本機易遊網 cookies / headers / json_data
+- `credentials.py` — 本機易遊網 cookies / headers / json_data（credentials.py 流程已廢棄，不需要 cookies；仍禁止入庫）
 - `__pycache__/`、`*.py[cod]` 等 Python 編譯產物（可能含有硬編碼的敏感字串）
 - `.env`、`.env.*` — 環境變數檔
 - `.envrc`、`*.pem`、`*.key`、`*.p12`、`secrets.*` — 其他常見私鑰或機敏檔
 
-請改以 `config.py.template`、`credentials.py.template` 作為範本，複製後填入自己的資料，且僅保存在本機。
+請改以 `config.py.template` 作為範本，複製後填入自己的資料，且僅保存在本機。credentials.py 流程已廢棄，不需要 cookies。
 
 ### 2. Token 輪換流程
 
 若懷疑任何憑證可能已外洩，請依下列步驟處理：
 
-1. **立即輪換**：到 LINE Developers 主控台重新發行 Channel Access Token；到 Google 帳戶設定撤銷並重新產生 Gmail 應用程式密碼；重新從易遊網取得新的 cookies。
-2. **更新本機設定**：修改本機的 `config.py` / `credentials.py` / `.env`。
+1. **立即輪換**：到 LINE Developers 主控台重新發行 Channel Access Token；到 Google 帳戶設定撤銷並重新產生 Gmail 應用程式密碼。不需任何 cookies（ezTravel 公開 API）。
+2. **更新本機設定**：修改本機的 `config.py` / `.env`。credentials.py 流程已廢棄，不需要 cookies。
 3. **確認未入庫**：執行 `git status`，確認機敏檔案未被追蹤。
 4. **從歷史清除（必要時）**：由儲存庫擁有者使用 `git filter-repo` 等工具改寫歷史，並通知所有協作者重新 clone。
 5. **私下通報**：依下方「回報方式」通知維護者。
