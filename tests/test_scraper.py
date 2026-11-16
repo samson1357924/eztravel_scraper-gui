@@ -189,12 +189,12 @@ def _test_sanitize_masks_secrets_body():
     assert scraper.sanitize(link) == link
     assert '2026-12-01' in scraper.sanitize('日期: 2026-12-01')
     # config 無法 import 的語法錯誤場景：用樣式遮蔽
-    leaked2 = "  File \"config.py\", line 3\nLINE_CHANNEL_ACCESS_TOKEN = 'ePxfpD6OXV3abcdefghijklmnopqrst1234567890'\n"
+    leaked2 = "  File \"config.py\", line 3\nLINE_CHANNEL_ACCESS_TOKEN = 'FAKE_TOKEN_for_sanitize_test_0123456789abcdef'\n"
     out2 = scraper.sanitize(leaked2)
-    assert 'ePxfpD6OXV3abcdefghijklmnopqrst1234567890' not in out2
+    assert 'FAKE_TOKEN_for_sanitize_test_0123456789abcdef' not in out2
     # v1 引號未閉合
-    out3 = scraper.sanitize("LINE_CHANNEL_ACCESS_TOKEN = 'ePxfpD6OXV3abcdefghijklmnopqrst1234567890")
-    assert 'ePxfpD6OXV3abcdefghijklmnopqrst1234567890' not in out3
+    out3 = scraper.sanitize("LINE_CHANNEL_ACCESS_TOKEN = 'FAKE_TOKEN_for_sanitize_test_0123456789abcdef")
+    assert 'FAKE_TOKEN_for_sanitize_test_0123456789abcdef' not in out3
     # v2 裸貼無引號（BotFather 標準複製法）
     out4 = scraper.sanitize('TELEGRAM_BOT_TOKEN = 8123456789:AAHabcdefghijklmnopqrstuvwxyz123456')
     assert '8123456789:AAHabcdefghijklmnopqrstuvwxyz123456' not in out4
