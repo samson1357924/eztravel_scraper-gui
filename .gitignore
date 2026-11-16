@@ -1,5 +1,49 @@
+# === 機密設定檔（絕對不可入庫）===
+# 本機實際設定，含 LINE / Gmail token 等敏感資訊
 config.py
+# 本機實際網站 cookies 與 headers，含 Incapsula 等憑證
 credentials.py
+# 環境變數檔（.env 及其衍生檔，例如 .env.local）
+.env
+.env.*
+# 但允許提交不含真實值的範本檔（SECURITY.md 建議）
+!.env.example
+!.env.sample
+!.env.template
+# 其他常見私鑰/機敏檔
+.envrc
+*.pem
+*.key
+*.p12
+secrets.*
+
+# === Python 編譯產物快取 ===
+# __pycache__ 內的 .pyc 可能含有被硬編碼的敏感字串，必須忽略
 __pycache__/
-*.pyc
+*.py[cod]
+# 測試與覆蓋率快取
+.pytest_cache/
+.coverage
+htmlcov/
+
+# === 建置與打包產物 ===
+dist/
+build/
+*.egg-info/
+
+# === 虛擬環境 ===
+venv/
+.venv/
+
+# === 執行期狀態與輸出 ===
+# 爬蟲排程狀態檔
+.scraper_state.json
+# 執行日誌
+*.log
+# 爬取結果試算表（可能含價格監控資料）
+*.xlsx
+# 文件用的範例試算表可提交
+!docs/**/*.xlsx
+
+# === 作業系統雜項 ===
 .DS_Store

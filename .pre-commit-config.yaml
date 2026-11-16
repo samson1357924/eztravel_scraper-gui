@@ -1,0 +1,18 @@
+# pre-commit 設定：在 commit 前自動掃描機敏資料，防止憑證再次外洩
+# 使用方式：pip install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        name: gitleaks（防止機敏資料入庫）
+        # 注意：gitleaks 預設規則無法識別所有憑證格式（本 repo 曾外洩的 .pyc 即未命中），
+        # 綠燈不代表歷史乾淨，僅為防禦縱深。
+
+  - repo: local
+    hooks:
+      - id: forbidden-files
+        name: 禁止機敏檔案入庫（鏡像 CI tracked-files 檢查）
+        language: system
+        pass_filenames: false
+        entry: bash -c 'BAD=$(git ls-files | grep -iE "(^|/)__pycache__/|\.py[cod]$|(^|/)config\.py$|(^|/)credentials\.py$|(^|/)\.env($|\.|rc$)|\.(pem|key|p12)$|(^|/)secrets\.[^/]*$" | grep -vE "(^|/)(\.env\.(example|sample|template))$" || true); if [ -n "$BAD" ]; then echo "下列機敏檔案不得入庫：$BAD" >&2; exit 1; fi'
