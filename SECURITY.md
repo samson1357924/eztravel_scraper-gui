@@ -21,6 +21,7 @@
 - 本機工作目錄中的 `config.py` 與 `credentials.py` 仍然保留，僅不再被 git 追蹤。
 - 新增 pre-commit 與 CI 檢查，防止同類事件再次發生。
 - 注意：上述檔案仍可能存在於**舊的 git 歷史與既有的 clone / fork** 中，輪換憑證是唯一可靠的補救手段。
+- `.gitleaksignore`：CI 的 gitleaks 歷史掃描基準化（baseline）了 2 筆發現項——皆為 commit `1ecc12c` 中的**人造測試字串**（sanitize 測試用的假 LINE token 前綴，非真實憑證，實值已於 `9d80a87` 改為全虛構字串）。全新的 commit 不會受這 2 筆影響。如果將來 CI 掃描出其他發現項，請勿直接加入 ignore，務必先確認是否為真實憑證。
 
 ## 防範措施
 
