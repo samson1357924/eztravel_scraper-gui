@@ -1,8 +1,31 @@
 # -*- coding: utf-8 -*-
 import sys
 import os
+import shutil
 import threading
 from datetime import datetime, timedelta
+
+# 首次啟動：config.py 不存在時，自動從 config.py.template 複製一份（exe 直接內嵌 template）
+if not os.path.exists("config.py"):
+    _template = os.path.join(getattr(sys, "_MEIPASS", "."), "config.py.template")
+    if os.path.isfile(_template):
+        try:
+            shutil.copyfile(_template, "config.py")
+        except OSError:
+            pass
+
+def _strip_inline_comment(line):
+    """移除不在引號內的 # 之後的內容（逐字掃描，追蹤引號狀態）。"""
+    quote = None
+    for i, ch in enumerate(line):
+        if quote:
+            if ch == quote:
+                quote = None
+        elif ch in ("'", '"'):
+            quote = ch
+        elif ch == '#':
+            return line[:i]
+    return line
 
 try:
     import math
@@ -168,6 +191,15 @@ class App(ctk.CTk):
     def quick_save_excel_enable(self): self.update_single_config("EXCEL_ENABLE", str(self.excel_enable_var.get()))
 
     @staticmethod
+    def _quote(v):
+        """把字串寫成 config.py 的合法字面量，避免引號衝突導致 config 語法錯誤。"""
+        if "'" in v and '"' not in v:
+            return f'"{v}"'
+        if "'" in v and '"' in v:
+            return repr(v)
+        return f"'{v}'"
+
+    @staticmethod
     def _write_config_preserving(values, path="config.py"):
         """重寫 config.py：保留既有註解、空行與未知鍵，僅更新或新增 values 中的鍵。"""
         lines = []
@@ -205,8 +237,10 @@ class App(ctk.CTk):
         try:
             s = {}
             with open("config.py", "r", encoding="utf-8") as f:
-                for line in f:
-                    if "=" in line: k, v = line.split("=", 1); s[k.strip()] = v.strip().strip("'").strip('"')
+                for raw in f:
+                    if "=" in raw:
+                        k, v = _strip_inline_comment(raw).split("=", 1)
+                        s[k.strip()] = v.strip().strip("'").strip('"')
             if "LINE_ENABLE" in s: self.line_enable_var.set(s["LINE_ENABLE"] == "True")
             if "EMAIL_ENABLE" in s: self.email_enable_var.set(s["EMAIL_ENABLE"] == "True")
             if "TELEGRAM_ENABLE" in s: self.telegram_enable_var.set(s["TELEGRAM_ENABLE"] == "True")
@@ -252,17 +286,17 @@ class App(ctk.CTk):
 
         # 儲存所有分頁的設定 (LINE, Email, Telegram, Excel)
         c["LINE_ENABLE"] = str(self.line_enable_var.get())
-        c["LINE_CHANNEL_ACCESS_TOKEN"] = f"'{self.line_token_entry.get().strip()}'"
-        c["LINE_USER_ID"] = f"'{self.line_uid_entry.get().strip()}'"
+        c["LINE_CHANNEL_ACCESS_TOKEN"] = self._quote(self.line_token_entry.get().strip())
+        c["LINE_USER_ID"] = self._quote(self.line_uid_entry.get().strip())
 
         c["EMAIL_ENABLE"] = str(self.email_enable_var.get())
-        c["GMAIL_USER"] = f"'{self.gmail_user_entry.get().strip()}'"
-        c["GMAIL_PASSWORD"] = f"'{self.gmail_pass_entry.get().strip()}'"
-        c["TO_EMAIL"] = f"'{self.to_email_entry.get().strip()}'"
+        c["GMAIL_USER"] = self._quote(self.gmail_user_entry.get().strip())
+        c["GMAIL_PASSWORD"] = self._quote(self.gmail_pass_entry.get().strip())
+        c["TO_EMAIL"] = self._quote(self.to_email_entry.get().strip())
 
         c["TELEGRAM_ENABLE"] = str(self.telegram_enable_var.get())
-        c["TELEGRAM_BOT_TOKEN"] = f"'{self.telegram_token_entry.get().strip()}'"
-        c["TELEGRAM_CHAT_ID"] = f"'{self.telegram_chat_id_entry.get().strip()}'"
+        c["TELEGRAM_BOT_TOKEN"] = self._quote(self.telegram_token_entry.get().strip())
+        c["TELEGRAM_CHAT_ID"] = self._quote(self.telegram_chat_id_entry.get().strip())
 
         c["EXCEL_ENABLE"] = str(self.excel_enable_var.get())
         c["EXCEL_FILENAME"] = f"'{self.excel_filename_entry.get()}'"

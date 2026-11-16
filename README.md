@@ -13,7 +13,7 @@
 - **自動監控 + 倒數**：自定義監控頻率，具備即時倒數計時與強制停止功能。
 - **全域一鍵儲存**：點擊一次即可同步所有分頁設定。
 - **繁體中文優化**：強制指定 Windows「微軟正黑體」，徹底解決介面字體回退至簡體字的問題。
-- **不需任何憑證/Cookies**：使用 ezTravel 公開 API，開箱即用。
+- **ezTravel 查價不需憑證/Cookies**（LINE/Gmail/Telegram 仍需各自 token）：使用公開 API，開箱即用。
 
 ## 🛠 操作教學
 1. **下載執行檔**：
@@ -57,9 +57,9 @@ Telegram 通知為選配管道，未設定即自動略過，不影響其他管�
 **群組 / 超級群組**：
 1. 把 bot 加入群組
 2. 群組內任一成員傳一則訊息
-3. 再查 getUpdates，`chat.id` 為 `-100` 開頭的負數（如 `-1001234567890`）
+3. 再查 getUpdates，`chat.id` 為負數；超級群組（supergroup）/頻道為 `-100` 開頭（如 `-1001234567890`），一般群組為負數但無 `-100` 前綴
 
-> getUpdates 回傳空陣列？常見原因：bot 還沒被 `/start`；或曾設過 webhook（webhook 會擋住 getUpdates，需先執行 `curl "https://api.telegram.org/bot<TOKEN>/deleteWebhook"` 移除）。
+> getUpdates 回傳 409 Conflict？常見原因：webhook 已設（webhook 啟用時 getUpdates 會被拒），需先執行 `curl "https://api.telegram.org/bot<TOKEN>/deleteWebhook"` 移除。
 
 ### 3. 填入 GUI 並測試
 在 **「Telegram 設定」** 分頁填入 Bot Token 與 Chat ID，**「啟用 Telegram 通知」** 開關打開後點 **「儲存設定」**。
@@ -78,7 +78,8 @@ curl -s -X POST "https://api.telegram.org/bot<TOKEN>/sendMessage" \
 | 400 chat not found | Chat ID 錯誤；私聊未先 `/start`；或 bot 不在群組 | 完成上面步驟 2 |
 | 403 bot was blocked | 你封鎖了 bot | 私聊 bot 傳 `/start` 解除封鎖 |
 | 429 Too Many Requests | 發送太頻繁 | 加大監控頻率（建議 ≥ 60 分鐘）後稍後重試 |
-| getUpdates 空陣列 | bot 未被 `/start`；或 webhook 擋住了 getUpdates | 先 `/start`；如曾設 webhook 先 `deleteWebhook` |
+| getUpdates 空 | bot 未被 `/start` | 先 `/start` 後再查 |
+| getUpdates 409 Conflict | webhook 擋住 getUpdates | 先刪除 webhook 後再查 |
 
 官方文件：[Telegram Bot API](https://core.telegram.org/bots/api) ・ [getUpdates](https://core.telegram.org/bots/api#getupdates) ・ [sendMessage](https://core.telegram.org/bots/api#sendmessage) ・ [deleteWebhook](https://core.telegram.org/bots/api#deletewebhook) ・ [@BotFather](https://t.me/BotFather)
 
@@ -120,6 +121,9 @@ eztravel_scraper-gui/
 ├── run_schedule.py                  # headless 排程器（失敗通知、log 輪替）
 ├── config.py.template               # 設定範本（config.py 不入庫）
 ├── requirements.txt                 # 依賴套件
+├── tests/                           # 離線單元測試（15 tests，不連網）
+│   ├── test_scraper.py             # API 封包/價格解析/去重/sanitize
+│   └── test_record_to_excel.py     # Excel 表頭唯一/去重/corrupt 備份/失敗不阻斷通知
 ├── SECURITY.md                      # 安全性政策
 ├── .github/workflows/security.yml   # CI 防洩密檢查
 ├── .pre-commit-config.yaml          # pre-commit：gitleaks + 禁止機敏檔案入庫
@@ -135,6 +139,7 @@ eztravel_scraper-gui/
 - **全通知管道去重與失敗告警**：去重通知（新日期或價格再跌才通知）；所有查詢失敗時發出告警。
 - **防洩密護欄**：新增 pre-commit（gitleaks + 禁止機敏檔案）、CI 檢查。
 - **文件全面更新**：README 改寫（Telegram 設定教學、開發者章節、V1.3.0）。
+- **測試**：新增 `tests/` 離線單元測試（15 個測試，不連網）。
 
 ### [V1.2.0] - 2026-04-07
 - **Excel 整合**：新增「Excel 記錄」分頁，支援自動追蹤每日票價變動。

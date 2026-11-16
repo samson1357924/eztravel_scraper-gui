@@ -8,6 +8,7 @@
 """
 import sys
 import os
+import tempfile
 import json
 import types
 
@@ -127,7 +128,7 @@ def test_state_safe_float_and_roundtrip():
     assert scraper.safe_float('4000') == 4000.0
     real_state = scraper.STATE_FILE
     try:
-        scraper.STATE_FILE = os.path.join(ROOT, '.test_scraper_state.json')
+        scraper.STATE_FILE = os.path.join(tempfile.mkdtemp(prefix='test_scraper_state_'), 'state.json')
         state = scraper.load_state()
         assert state == {}
         scraper.save_state({'notified': {'2026-12-01': 4000}})
@@ -143,7 +144,7 @@ def test_run_scraper_dedups_notifications():
     real_send = scraper.send_notification_text
     real_query = scraper.query_one_resource
     real_state = scraper.STATE_FILE
-    state_tmp = os.path.join(ROOT, '.test_scraper_state.json')
+    state_tmp = os.path.join(tempfile.mkdtemp(prefix='test_scraper_state_'), 'state.json')
     if os.path.exists(state_tmp):
         os.remove(state_tmp)
     scraper.send_notification_text = lambda text: sends.append(text)
@@ -196,8 +197,8 @@ def _test_sanitize_masks_secrets_body():
     out3 = scraper.sanitize("LINE_CHANNEL_ACCESS_TOKEN = 'FAKE_TOKEN_for_sanitize_test_0123456789abcdef")
     assert 'FAKE_TOKEN_for_sanitize_test_0123456789abcdef' not in out3
     # v2 裸貼無引號（BotFather 標準複製法）
-    out4 = scraper.sanitize('TELEGRAM_BOT_TOKEN = 8123456789:AAHabcdefghijklmnopqrstuvwxyz123456')
-    assert '8123456789:AAHabcdefghijklmnopqrstuvwxyz123456' not in out4
+    out4 = scraper.sanitize('TELEGRAM_BOT_TOKEN = 000000000:FAKE_TEST_TOKEN_NOT_REAL_000000000000000')
+    assert '000000000:FAKE_TEST_TOKEN_NOT_REAL_000000000000000' not in out4
     # v6 NameError 內嵌 secret
     out5 = scraper.sanitize("NameError: name 'fakegmailapppassword0xDEADBEEF1234567890' is not defined")
     assert 'fakegmailapppassword0xDEADBEEF1234567890' not in out5

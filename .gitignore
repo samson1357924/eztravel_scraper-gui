@@ -39,6 +39,7 @@ venv/
 # 爬蟲排程狀態檔
 .scraper_state.json
 .scraper_state.json.tmp
+.scheduler_state.json.tmp
 # 排程器狀態檔
 .scheduler_state.json
 # 執行日誌

@@ -152,9 +152,12 @@ def notify_failure(job_name, detail):
         text = text[:1500]  # 控制長度，避免 LINE/Telegram 因訊息過長拒收而整個送不出去
         sent = False
 
+        line_enable = getattr(config, 'LINE_ENABLE', True)
+        tg_enable = getattr(config, 'TELEGRAM_ENABLE', True)
+
         line_token = getattr(config, 'LINE_CHANNEL_ACCESS_TOKEN', '') or ''
         line_user = getattr(config, 'LINE_USER_ID', '') or ''
-        if line_token and line_user and not line_token.startswith('YOUR_'):
+        if line_enable and line_token and line_user and not line_token.startswith('YOUR_'):
             try:
                 import requests
                 r = requests.post(
@@ -173,7 +176,7 @@ def notify_failure(job_name, detail):
 
         tg_token = getattr(config, 'TELEGRAM_BOT_TOKEN', '') or ''
         tg_chat = getattr(config, 'TELEGRAM_CHAT_ID', '') or ''
-        if tg_token and tg_chat:
+        if tg_enable and tg_token and tg_chat:
             try:
                 import requests
                 r = requests.post(
